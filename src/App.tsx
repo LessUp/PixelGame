@@ -9,19 +9,67 @@ import usePixelStore from './store/usePixelStore'
 function App() {
   const undo = usePixelStore(s => s.undo)
   const load = usePixelStore(s => s.load)
+  const panBy = usePixelStore(s => s.panBy)
+  const setScale = usePixelStore(s => s.setScale)
+  const setSelected = usePixelStore(s => s.setSelected)
+  const showGrid = usePixelStore(s => s.showGrid)
+  const setShowGrid = usePixelStore(s => s.setShowGrid)
+  const viewport = usePixelStore(s => s.viewport)
+  const applyHash = usePixelStore(s => s.applyHash)
+  const fillSelection = usePixelStore(s => s.fillSelection)
+  const clearSelection = usePixelStore(s => s.clearSelection)
 
   useEffect(() => {
     load()
+    applyHash(window.location.hash)
+    const onHash = () => applyHash(window.location.hash)
+
     const onKey = (e: KeyboardEvent) => {
-      const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')
-      if (isUndo) {
+      const key = e.key
+      const ctrl = e.ctrlKey || e.metaKey
+      if (ctrl && !e.shiftKey && (key === 'z' || key === 'Z')) {
         e.preventDefault()
         undo()
+        return
       }
+      if (key === '+' || key === '=' ) {
+        e.preventDefault()
+        const ns = viewport.scale * 1.1
+        setScale(ns)
+        return
+      }
+      if (key === '-') {
+        e.preventDefault()
+        const ns = viewport.scale / 1.1
+        setScale(ns)
+        return
+      }
+      if (key === 'g' || key === 'G') {
+        e.preventDefault()
+        setShowGrid(!showGrid)
+        return
+      }
+      if (/^[0-9]$/.test(key)) {
+        const idx = key === '0' ? 9 : (parseInt(key, 10) - 1)
+        setSelected(idx)
+        return
+      }
+      const step = 50
+      if (key === 'ArrowLeft' || key === 'a' || key === 'A') { e.preventDefault(); panBy(step, 0); return }
+      if (key === 'ArrowRight' || key === 'd' || key === 'D') { e.preventDefault(); panBy(-step, 0); return }
+      if (key === 'ArrowUp' || key === 'w' || key === 'W') { e.preventDefault(); panBy(0, step); return }
+      if (key === 'ArrowDown' || key === 's' || key === 'S') { e.preventDefault(); panBy(0, -step); return }
+      if (key === 'f' || key === 'F') { e.preventDefault(); fillSelection(); return }
+      if (key === 'Escape') { e.preventDefault(); clearSelection(); return }
     }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [undo, load])
+    window.addEventListener('hashchange', onHash)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('hashchange', onHash)
+    }
+  }, [undo, load, panBy, setScale, setSelected, setShowGrid, showGrid, viewport.scale, applyHash, fillSelection, clearSelection])
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-neutral-950 text-white">

@@ -6,6 +6,8 @@ type Viewport = {
   offsetY: number
 }
 
+type Tool = 'paint' | 'selectRect'
+
 type HistoryItem = { idx: number; prev: number; next: number }
 
 type PixelStore = {
@@ -19,6 +21,7 @@ type PixelStore = {
   lastPlacedAt: number
   viewport: Viewport
   history: HistoryItem[]
+  historyLimit: number
   canvasW: number
   canvasH: number
   setCanvasSize: (w: number, h: number) => void
@@ -34,15 +37,38 @@ type PixelStore = {
   save: () => void
   load: () => void
   clear: () => void
+  setHistoryLimit: (n: number) => void
   exportPNG: () => string
   exportJSON: () => string
   importJSON: (text: string) => boolean
   centerOn: (x: number, y: number) => void
+  exportHash: () => string
+  applyHash: (hash: string) => boolean
+  // tools & selection
+  tool: Tool
+  setTool: (t: Tool) => void
+  selection: { x0: number; y0: number; x1: number; y1: number } | null
+  startSelection: (x: number, y: number) => void
+  updateSelection: (x: number, y: number) => void
+  clearSelection: () => void
+  fillSelection: (colorIndex?: number) => number
+  // websocket adapter (optional)
+  wsEnabled: boolean
+  wsUrl: string
+  connectWS: (url?: string) => void
+  disconnectWS: () => void
+  applyRemotePixels: (list: Array<{ x: number; y: number; c: number }>) => void
   showGrid: boolean
   setShowGrid: (v: boolean) => void
   dirty: number[]
   fullRedraw: boolean
   consumeDirty: () => { full: boolean; list: number[] }
+  gridColor: string
+  gridAlpha: number
+  gridMinScale: number
+  setGridColor: (c: string) => void
+  setGridAlpha: (a: number) => void
+  setGridMinScale: (s: number) => void
 }
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
@@ -83,13 +109,14 @@ export const usePixelStore = create<PixelStore>((set, get) => {
   const width = 1024
   const height = 1024
   let pixels = new Uint8Array(width * height)
+  let ws: WebSocket | null = null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const obj = JSON.parse(raw)
       if (obj && obj.w === width && obj.h === height && typeof obj.b64 === 'string') {
         const u8 = b64ToU8(obj.b64)
-        if (u8.length === pixels.length) pixels = u8
+        if (u8.length === pixels.length) pixels.set(u8)
       }
     }
   } catch {}
@@ -105,6 +132,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
     lastPlacedAt: 0,
     viewport: { scale: 8, offsetX: 0, offsetY: 0 },
     history: [],
+    historyLimit: 200,
+    tool: 'paint',
+    selection: null,
     canvasW: 0,
     canvasH: 0,
     setCanvasSize: (w, h) => set({ canvasW: w, canvasH: h }),
@@ -118,6 +148,123 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ dirty: [], fullRedraw: false })
       return { full, list }
     },
+    setTool: (t) => set({ tool: t }),
+    startSelection: (x, y) => set({ selection: { x0: x, y0: y, x1: x, y1: y } }),
+    updateSelection: (x, y) => {
+      const s = get().selection
+      if (!s) return
+      set({ selection: { ...s, x1: x, y1: y } })
+    },
+    clearSelection: () => set({ selection: null }),
+    fillSelection: (colorIndex) => {
+      const sel = get().selection
+      if (!sel) return 0
+      const x0 = clamp(Math.min(sel.x0, sel.x1), 0, get().width - 1)
+      const y0 = clamp(Math.min(sel.y0, sel.y1), 0, get().height - 1)
+      const x1 = clamp(Math.max(sel.x0, sel.x1), 0, get().width - 1)
+      const y1 = clamp(Math.max(sel.y0, sel.y1), 0, get().height - 1)
+      const col = typeof colorIndex === 'number' ? colorIndex : get().selected
+      let changed = 0
+      const h = get().history
+      const d = get().dirty
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const idx = y * get().width + x
+          const prev = get().pixels[idx]
+          if (prev === col) continue
+          get().pixels[idx] = col
+          h.push({ idx, prev, next: col })
+          if (d.length < 10000) d.push(idx)
+          changed++
+        }
+      }
+      if (changed) {
+        // trim history if beyond limit
+        const lim = get().historyLimit
+        while (h.length > lim) h.shift()
+        set({ version: get().version + 1, history: h, dirty: d, selection: null, lastPlacedAt: Date.now() })
+        get().save()
+        // broadcast simplified change as a list may be large; send bbox + color
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try { ws.send(JSON.stringify({ t: 'fillRect', x0, y0, x1, y1, c: col })) } catch {}
+        }
+      }
+      return changed
+    },
+    wsEnabled: false,
+    wsUrl: '',
+    connectWS: (url) => {
+      const target = url || get().wsUrl
+      if (!target) return
+      try {
+        if (ws) { try { ws.close() } catch {} }
+        ws = new WebSocket(target)
+        ws.onopen = () => set({ wsEnabled: true, wsUrl: target })
+        ws.onclose = () => set({ wsEnabled: false })
+        ws.onerror = () => set({ wsEnabled: false })
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data)
+            if (msg.t === 'place') {
+              const x = msg.x|0, y = msg.y|0, c = msg.c|0
+              if (x>=0 && y>=0 && x<get().width && y<get().height) {
+                const idx = y * get().width + x
+                const prev = get().pixels[idx]
+                if (prev !== c) {
+                  get().pixels[idx] = c
+                  const d = get().dirty
+                  if (d.length < 10000) d.push(idx)
+                  set({ version: get().version + 1, dirty: d })
+                }
+              }
+            } else if (msg.t === 'fillRect') {
+              const { x0, y0, x1, y1, c } = msg
+              const d = get().dirty
+              for (let y = y0; y <= y1; y++) {
+                for (let x = x0; x <= x1; x++) {
+                  if (x<0||y<0||x>=get().width||y>=get().height) continue
+                  const idx = y * get().width + x
+                  const prev = get().pixels[idx]
+                  if (prev !== c) {
+                    get().pixels[idx] = c
+                    if (d.length < 10000) d.push(idx)
+                  }
+                }
+              }
+              set({ version: get().version + 1, dirty: d })
+            } else if (msg.t === 'multi') {
+              const arr = Array.isArray(msg.list) ? msg.list : []
+              get().applyRemotePixels(arr)
+            }
+          } catch {}
+        }
+      } catch {}
+    },
+    disconnectWS: () => {
+      try { if (ws) ws.close() } catch {}
+      ws = null
+      set({ wsEnabled: false })
+    },
+    applyRemotePixels: (list) => {
+      const d = get().dirty
+      for (const it of list) {
+        const x = it.x|0, y = it.y|0, c = it.c|0
+        if (x<0||y<0||x>=get().width||y>=get().height) continue
+        const idx = y * get().width + x
+        const prev = get().pixels[idx]
+        if (prev !== c) {
+          get().pixels[idx] = c
+          if (d.length < 10000) d.push(idx)
+        }
+      }
+      set({ version: get().version + 1, dirty: d })
+    },
+    gridColor: '#ffffff',
+    gridAlpha: 0.08,
+    gridMinScale: 8,
+    setGridColor: (c: string) => set({ gridColor: c || '#ffffff' }),
+    setGridAlpha: (a: number) => set({ gridAlpha: clamp(a, 0, 1) }),
+    setGridMinScale: (s: number) => set({ gridMinScale: clamp(Math.round(s), 1, 64) }),
     setSelected: (i) => set({ selected: clamp(i, 0, get().palette.length - 1) }),
     setViewport: (v) => set({ viewport: { ...get().viewport, ...v } }),
     panBy: (dx, dy) => set({ viewport: { ...get().viewport, offsetX: get().viewport.offsetX + dx, offsetY: get().viewport.offsetY + dy } }),
@@ -149,11 +296,16 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       get().pixels[idx] = col
       const h = get().history
       h.push({ idx, prev: cur, next: col })
-      if (h.length > 100) h.shift()
+      const lim = get().historyLimit
+      if (h.length > lim) h.shift()
       const d = get().dirty
       if (d.length < 10000) d.push(idx)
       set({ version: get().version + 1, lastPlacedAt: Date.now(), history: h, dirty: d })
       get().save()
+      // broadcast if ws connected
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ t: 'place', x, y, c: col })) } catch {}
+      }
       return true
     },
     pickColor: (x, y) => {
@@ -168,6 +320,12 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ version: get().version + 1, history: h })
       get().save()
     },
+    setHistoryLimit: (n: number) => {
+      const lim = clamp(Math.round(n), 1, 1000)
+      const h = get().history
+      while (h.length > lim) h.shift()
+      set({ historyLimit: lim, history: h })
+    },
     save: () => {
       try {
         const s = get()
@@ -175,6 +333,41 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         const payload = { w: s.width, h: s.height, b64, s: s.selected }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
       } catch {}
+    },
+    exportHash: () => {
+      const s = get()
+      const obj = {
+        v: 1,
+        vp: s.viewport,
+        s: s.selected,
+        g: s.showGrid,
+        gc: s.gridColor,
+        ga: s.gridAlpha,
+        gs: s.gridMinScale,
+      }
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
+      return `#pb=${b64}`
+    },
+    applyHash: (hash: string) => {
+      if (!hash || !hash.startsWith('#pb=')) return false
+      try {
+        const b64 = hash.slice(4)
+        const json = decodeURIComponent(escape(atob(b64)))
+        const obj = JSON.parse(json)
+        if (!obj || obj.v !== 1) return false
+        const vp = obj.vp
+        if (vp && typeof vp.scale === 'number' && typeof vp.offsetX === 'number' && typeof vp.offsetY === 'number') {
+          set({ viewport: { scale: clamp(vp.scale, 1, 64), offsetX: vp.offsetX, offsetY: vp.offsetY } })
+        }
+        if (typeof obj.s === 'number') set({ selected: clamp(obj.s, 0, get().palette.length - 1) })
+        if (typeof obj.g === 'boolean') set({ showGrid: obj.g })
+        if (typeof obj.gc === 'string') set({ gridColor: obj.gc })
+        if (typeof obj.ga === 'number') set({ gridAlpha: clamp(obj.ga, 0, 1) })
+        if (typeof obj.gs === 'number') set({ gridMinScale: clamp(Math.round(obj.gs), 1, 64) })
+        return true
+      } catch {
+        return false
+      }
     },
     load: () => {
       try {

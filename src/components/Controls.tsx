@@ -11,6 +11,16 @@ export default function Controls() {
   const importJSON = usePixelStore(s => s.importJSON)
   const showGrid = usePixelStore(s => s.showGrid)
   const setShowGrid = usePixelStore(s => s.setShowGrid)
+  const gridColor = usePixelStore(s => s.gridColor)
+  const gridAlpha = usePixelStore(s => s.gridAlpha)
+  const gridMinScale = usePixelStore(s => s.gridMinScale)
+  const setGridColor = usePixelStore(s => s.setGridColor)
+  const setGridAlpha = usePixelStore(s => s.setGridAlpha)
+  const setGridMinScale = usePixelStore(s => s.setGridMinScale)
+  const historyLimit = usePixelStore(s => s.historyLimit)
+  const setHistoryLimit = usePixelStore(s => s.setHistoryLimit)
+  const exportHash = usePixelStore(s => s.exportHash)
+  const applyHash = usePixelStore(s => s.applyHash)
 
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -60,6 +70,40 @@ export default function Controls() {
       <div className="flex items-center gap-2 pt-1">
         <input id="grid-toggle" type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
         <label htmlFor="grid-toggle" className="text-sm text-white/80">显示网格</label>
+      </div>
+      {showGrid && (
+        <div className="space-y-2 pl-5">
+          <div className="flex items-center gap-2">
+            <label className="w-20 text-xs text-white/60">网格颜色</label>
+            <input type="color" value={gridColor} onChange={e => setGridColor(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="w-20 text-xs text-white/60">不透明度</label>
+            <input className="flex-1" type="range" min={0} max={1} step={0.01} value={gridAlpha} onChange={e => setGridAlpha(parseFloat(e.target.value))} />
+            <span className="text-xs text-white/60 w-10 text-right">{gridAlpha.toFixed(2)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="w-20 text-xs text-white/60">最小缩放</label>
+            <input className="w-20" type="number" min={1} max={64} value={gridMinScale} onChange={e => setGridMinScale(parseInt(e.target.value || '8'))} />
+          </div>
+        </div>
+      )}
+      <div className="space-y-2 pt-2">
+        <div className="flex items-center gap-2">
+          <label className="w-28 text-xs text-white/60">撤销步数上限</label>
+          <input className="w-24" type="number" min={1} max={1000} value={historyLimit} onChange={e => setHistoryLimit(parseInt(e.target.value || '200'))} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 pt-2">
+        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={async () => {
+          const hash = exportHash()
+          const url = `${location.origin}${location.pathname}${hash}`
+          location.hash = hash
+          try { await navigator.clipboard.writeText(url) } catch {}
+        }}>复制分享链接</button>
+        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={() => {
+          applyHash(location.hash)
+        }}>应用当前链接</button>
       </div>
       <input ref={fileRef} className="hidden" type="file" accept="application/json" onChange={onFileChange} />
     </div>
