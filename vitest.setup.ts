@@ -1,28 +1,3 @@
-type StorageRecord = Record<string, string>
-
-class MemoryStorage implements Storage {
-  private map: StorageRecord = {}
-  get length() {
-    return Object.keys(this.map).length
-  }
-  clear(): void {
-    this.map = {}
-  }
-  getItem(key: string): string | null {
-    return Object.prototype.hasOwnProperty.call(this.map, key) ? this.map[key] : null
-  }
-  key(index: number): string | null {
-    const keys = Object.keys(this.map)
-    return keys[index] ?? null
-  }
-  removeItem(key: string): void {
-    delete this.map[key]
-  }
-  setItem(key: string, value: string): void {
-    this.map[key] = String(value)
-  }
-}
-
 const g = globalThis as typeof globalThis & {
   window?: Window & typeof globalThis
   document?: Document
@@ -32,22 +7,53 @@ const g = globalThis as typeof globalThis & {
   CanvasRenderingContext2D?: typeof CanvasRenderingContext2D
 }
 
-if (!g.localStorage) {
-  g.localStorage = new MemoryStorage()
+class MemoryStorage implements Storage {
+  private map = new Map<string, string>()
+
+  get length() {
+    return this.map.size
+  }
+
+  clear(): void {
+    this.map.clear()
+  }
+
+  getItem(key: string): string | null {
+    return this.map.has(key) ? this.map.get(key)! : null
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.map.keys())[index] ?? null
+  }
+
+  removeItem(key: string): void {
+    this.map.delete(key)
+  }
+
+  setItem(key: string, value: string): void {
+    this.map.set(key, String(value))
+  }
 }
 
-g.window = Object.assign(Object.create(null), g.window, {
-  localStorage: g.localStorage,
-}) as Window & typeof globalThis
+const win = (g.window ||= (globalThis as unknown as Window & typeof globalThis))
 
-g.window.window = g.window
+if (!win.localStorage) {
+  win.localStorage = new MemoryStorage()
+}
+
+if (!g.localStorage) {
+  g.localStorage = win.localStorage
+}
 
 g.btoa ||= (data: string) => Buffer.from(data, 'binary').toString('base64')
-
 g.atob ||= (data: string) => Buffer.from(data, 'base64').toString('binary')
+
+win.btoa = g.btoa
+win.atob = g.atob
 
 class MockCanvasRenderingContext2D {
   public lastImageData: ImageData | null = null
+
   createImageData(width: number, height: number): ImageData {
     return {
       width,
@@ -55,54 +61,41 @@ class MockCanvasRenderingContext2D {
       data: new Uint8ClampedArray(width * height * 4),
     } as ImageData
   }
+
   putImageData(image: ImageData, _x: number, _y: number) {
     this.lastImageData = image
   }
 }
 
-class MockCanvasElement {
-  width = 0
-  height = 0
-  private ctx = new MockCanvasRenderingContext2D()
-  getContext(type: string) {
-    if (type === '2d') return this.ctx
+g.CanvasRenderingContext2D = MockCanvasRenderingContext2D as unknown as typeof CanvasRenderingContext2D
+
+const ensureCanvas = () => {
+  const prototype = win.HTMLCanvasElement?.prototype
+  if (!prototype) return
+  const createCtx = () => new MockCanvasRenderingContext2D()
+  prototype.getContext = function getContext(type: string) {
+    if (type === '2d') return createCtx() as unknown as CanvasRenderingContext2D
     return null
   }
-  toDataURL(_type?: string) {
+  prototype.toDataURL = function toDataURL() {
     return 'data:image/png;base64,mock'
   }
 }
 
-g.CanvasRenderingContext2D = MockCanvasRenderingContext2D as unknown as typeof CanvasRenderingContext2D
+ensureCanvas()
 
-class MockDocument {
-  createElement(tagName: string) {
-    if (tagName.toLowerCase() === 'canvas') {
-      return new MockCanvasElement() as unknown as HTMLCanvasElement
-    }
-    return {
-      tagName: tagName.toUpperCase(),
-      style: {},
-    }
+if (!win.requestAnimationFrame) {
+  win.requestAnimationFrame = (cb: FrameRequestCallback) =>
+    Number(setTimeout(() => cb(performance.now()), 16))
+}
+
+if (!win.cancelAnimationFrame) {
+  win.cancelAnimationFrame = (id: number) => {
+    clearTimeout(id)
   }
 }
 
-g.document = g.document || (new MockDocument() as unknown as Document)
+win.performance = win.performance || g.performance
+win.navigator = win.navigator ?? ({ userAgent: 'vitest-jsdom' } as Navigator)
 
-g.window.document = g.document
-
-g.window.CanvasRenderingContext2D = g.CanvasRenderingContext2D
-
-g.window.btoa = g.btoa
-
-g.window.atob = g.atob
-
-g.window.performance = g.performance
-
-g.window.navigator = g.navigator ?? ({ userAgent: 'vitest-mini-dom' } as Navigator)
-
-g.window.requestAnimationFrame ||= (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now()), 16)
-
-g.window.cancelAnimationFrame ||= (id: number) => clearTimeout(id)
-
-export type {}
+export {}

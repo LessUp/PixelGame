@@ -19,7 +19,7 @@ npm run dev
 | `npm run build` | 构建生产包 |
 | `npm run preview` | 预览构建产物 |
 | `npm run lint` | 运行 ESLint |
-| `npm run test` | 运行 Vitest 兼容测试套件（含状态逻辑、导入导出、基准阈值） |
+| `npm run test` | 基于 Vitest + JSDOM 的测试套件（覆盖状态逻辑、导入导出、基准阈值） |
 | `npm run test:bench` | 仅执行性能基准测试（平均耗时阈值检查） |
 
 ## 核心技术栈
@@ -85,7 +85,7 @@ pixel/
 2. **自动化测试**：覆盖像素编码/解码、持久化、渲染辅助函数等核心逻辑。
 3. **性能压测**：在 CI 中加入离屏渲染与交互基准测试，监控性能回归。
 
-> 项目提供了一个基于 esbuild 的 Vitest 兼容执行器（`support/vitest-stub`），在 `vitest.setup.ts` 中模拟了 `localStorage`、`CanvasRenderingContext2D` 等 JSDOM/Happy DOM 环境能力，以便在无 GUI 的 CI 中运行测试与基准检查。
+> 测试环境通过 Vitest 的 JSDOM 运行时配合 `vitest.setup.ts` 中的补丁来模拟 `CanvasRenderingContext2D`，从而在 CI 中覆盖导入导出与离屏渲染逻辑。
 
 ### 可访问性 & 国际化
 

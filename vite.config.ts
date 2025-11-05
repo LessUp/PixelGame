@@ -5,11 +5,11 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
   },
   bench: {
-    environment: 'node',
+    environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
   },
 })
