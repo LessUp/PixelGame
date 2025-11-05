@@ -156,15 +156,25 @@ export default function Controls() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 pt-2">
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={async () => {
-          const hash = exportHash()
-          const url = `${location.origin}${location.pathname}${hash}`
-          location.hash = hash
-          try { await navigator.clipboard.writeText(url) } catch {}
-        }}>复制分享链接</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={() => {
-          applyHash(location.hash)
-        }}>应用当前链接</button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10"
+          onClick={async () => {
+            const hash = exportHash()
+            const url = `${location.origin}${location.pathname}${hash}`
+            location.hash = hash
+            try {
+              await navigator.clipboard.writeText(url)
+            } catch {
+              /* clipboard write may be blocked */
+            }
+          }}
+        >复制分享链接</button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10"
+          onClick={() => {
+            applyHash(location.hash)
+          }}
+        >应用当前链接</button>
       </div>
       <input ref={fileRef} className="hidden" type="file" accept="application/json" onChange={onFileChange} />
     </div>

@@ -108,7 +108,7 @@ const STORAGE_KEY = 'pixel-board-v1'
 export const usePixelStore = create<PixelStore>((set, get) => {
   const width = 1024
   const height = 1024
-  let pixels = new Uint8Array(width * height)
+  const pixels = new Uint8Array(width * height)
   let ws: WebSocket | null = null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -119,7 +119,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         if (u8.length === pixels.length) pixels.set(u8)
       }
     }
-  } catch {}
+  } catch {
+    /* ignore malformed persisted data */
+  }
 
   return {
     width,
@@ -186,7 +188,11 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         get().save()
         // broadcast simplified change as a list may be large; send bbox + color
         if (ws && ws.readyState === WebSocket.OPEN) {
-          try { ws.send(JSON.stringify({ t: 'fillRect', x0, y0, x1, y1, c: col })) } catch {}
+          try {
+            ws.send(JSON.stringify({ t: 'fillRect', x0, y0, x1, y1, c: col }))
+          } catch {
+            /* ignore network send failure */
+          }
         }
       }
       return changed
@@ -196,8 +202,14 @@ export const usePixelStore = create<PixelStore>((set, get) => {
     connectWS: (url) => {
       const target = url || get().wsUrl
       if (!target) return
-      try {
-        if (ws) { try { ws.close() } catch {} }
+        try {
+          if (ws) {
+            try {
+              ws.close()
+            } catch {
+              /* ignore close error */
+            }
+          }
         ws = new WebSocket(target)
         ws.onopen = () => set({ wsEnabled: true, wsUrl: target })
         ws.onclose = () => set({ wsEnabled: false })
@@ -236,12 +248,20 @@ export const usePixelStore = create<PixelStore>((set, get) => {
               const arr = Array.isArray(msg.list) ? msg.list : []
               get().applyRemotePixels(arr)
             }
-          } catch {}
+          } catch {
+            /* ignore malformed websocket message */
+          }
         }
-      } catch {}
+      } catch {
+        /* websocket connection attempt failed */
+      }
     },
     disconnectWS: () => {
-      try { if (ws) ws.close() } catch {}
+      try {
+        if (ws) ws.close()
+      } catch {
+        /* ignore close error */
+      }
       ws = null
       set({ wsEnabled: false })
     },
@@ -303,9 +323,13 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ version: get().version + 1, lastPlacedAt: Date.now(), history: h, dirty: d })
       get().save()
       // broadcast if ws connected
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        try { ws.send(JSON.stringify({ t: 'place', x, y, c: col })) } catch {}
-      }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ t: 'place', x, y, c: col }))
+          } catch {
+            /* ignore network send failure */
+          }
+        }
       return true
     },
     pickColor: (x, y) => {
@@ -326,14 +350,16 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       while (h.length > lim) h.shift()
       set({ historyLimit: lim, history: h })
     },
-    save: () => {
-      try {
-        const s = get()
-        const b64 = u8ToB64(s.pixels)
-        const payload = { w: s.width, h: s.height, b64, s: s.selected }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-      } catch {}
-    },
+      save: () => {
+        try {
+          const s = get()
+          const b64 = u8ToB64(s.pixels)
+          const payload = { w: s.width, h: s.height, b64, s: s.selected }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+        } catch {
+          /* ignore persist failure */
+        }
+      },
     exportHash: () => {
       const s = get()
       const obj = {
@@ -379,7 +405,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
           if (u8.length === get().pixels.length) get().pixels.set(u8)
           set({ version: get().version + 1, selected: typeof obj.s === 'number' ? obj.s : get().selected, fullRedraw: true, dirty: [] })
         }
-      } catch {}
+        } catch {
+          /* ignore load failure */
+        }
     },
     clear: () => {
       get().pixels.fill(0)
