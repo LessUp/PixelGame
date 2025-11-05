@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import usePixelStore from '../store/usePixelStore'
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -44,7 +44,7 @@ export default function MiniMap() {
   }, [width, height, version, palette])
 
   // draw minimap and the viewport rect
-  const draw = () => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
     const off = offRef.current
     if (!canvas || !off) return
@@ -75,9 +75,9 @@ export default function MiniMap() {
     ctx.lineWidth = 1/scale
     ctx.strokeRect(x1 + 0.5, y1 + 0.5, Math.max(0, x2 - x1 - 1), Math.max(0, y2 - y1 - 1))
     ctx.restore()
-  }
+  }, [canvasH, canvasW, height, viewport, width])
 
-  useEffect(() => { draw() }, [version, viewport, canvasW, canvasH, palette])
+  useEffect(() => { draw() }, [draw, version])
 
   useEffect(() => {
     const canvas = canvasRef.current!
