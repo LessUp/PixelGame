@@ -21,6 +21,11 @@ export default function Controls() {
   const setHistoryLimit = usePixelStore(s => s.setHistoryLimit)
   const exportHash = usePixelStore(s => s.exportHash)
   const applyHash = usePixelStore(s => s.applyHash)
+  const tool = usePixelStore(s => s.tool)
+  const setTool = usePixelStore(s => s.setTool)
+  const selection = usePixelStore(s => s.selection)
+  const fillSelection = usePixelStore(s => s.fillSelection)
+  const clearSelection = usePixelStore(s => s.clearSelection)
 
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -58,6 +63,62 @@ export default function Controls() {
 
   return (
     <div className="space-y-2">
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            className={`px-3 py-2 rounded border text-sm transition-colors ${
+              tool === 'paint'
+                ? 'bg-sky-700/70 border-sky-400/60 text-white'
+                : 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white/90'
+            }`}
+            aria-pressed={tool === 'paint'}
+            title="快捷键：B"
+            onClick={() => setTool('paint')}
+          >
+            画笔 (B)
+          </button>
+          <button
+            className={`px-3 py-2 rounded border text-sm transition-colors ${
+              tool === 'selectRect'
+                ? 'bg-sky-700/70 border-sky-400/60 text-white'
+                : 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white/90'
+            }`}
+            aria-pressed={tool === 'selectRect'}
+            title="快捷键：M"
+            onClick={() => setTool('selectRect')}
+          >
+            选框 (M)
+          </button>
+        </div>
+        {tool === 'selectRect' && (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={`px-3 py-2 rounded border text-sm transition-colors ${
+                selection
+                  ? 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white'
+                  : 'bg-neutral-900 border-white/5 text-white/40 cursor-not-allowed'
+              }`}
+              disabled={!selection}
+              onClick={() => selection && fillSelection()}
+              title="填充选区（快捷键：F）"
+            >
+              填充选区 (F)
+            </button>
+            <button
+              className={`px-3 py-2 rounded border text-sm transition-colors ${
+                selection
+                  ? 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white'
+                  : 'bg-neutral-900 border-white/5 text-white/40 cursor-not-allowed'
+              }`}
+              disabled={!selection}
+              onClick={() => clearSelection()}
+              title="取消当前选择（快捷键：Esc）"
+            >
+              取消选择 (Esc)
+            </button>
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={undo}>撤销 (Ctrl+Z)</button>
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40" onClick={clear}>清空</button>

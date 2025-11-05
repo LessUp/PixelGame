@@ -18,6 +18,7 @@ function App() {
   const applyHash = usePixelStore(s => s.applyHash)
   const fillSelection = usePixelStore(s => s.fillSelection)
   const clearSelection = usePixelStore(s => s.clearSelection)
+  const setTool = usePixelStore(s => s.setTool)
 
   useEffect(() => {
     load()
@@ -49,6 +50,16 @@ function App() {
         setShowGrid(!showGrid)
         return
       }
+      if (key === 'b' || key === 'B') {
+        e.preventDefault()
+        setTool('paint')
+        return
+      }
+      if (key === 'm' || key === 'M') {
+        e.preventDefault()
+        setTool('selectRect')
+        return
+      }
       if (/^[0-9]$/.test(key)) {
         const idx = key === '0' ? 9 : (parseInt(key, 10) - 1)
         setSelected(idx)
@@ -69,7 +80,7 @@ function App() {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('hashchange', onHash)
     }
-  }, [undo, load, panBy, setScale, setSelected, setShowGrid, showGrid, viewport.scale, applyHash, fillSelection, clearSelection])
+  }, [undo, load, panBy, setScale, setSelected, setShowGrid, showGrid, viewport.scale, applyHash, fillSelection, clearSelection, setTool])
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-neutral-950 text-white">
