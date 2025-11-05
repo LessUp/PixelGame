@@ -18,6 +18,7 @@ coverage
 # Vite cache
 .vite
 .cache
+.vitest-stub
 
 # Env files
 .env

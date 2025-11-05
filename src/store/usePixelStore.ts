@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { createStore } from 'zustand/vanilla'
+import type { StateCreator } from 'zustand'
 
 type Viewport = {
   scale: number
@@ -105,7 +107,7 @@ const defaultPalette: string[] = [
 
 const STORAGE_KEY = 'pixel-board-v1'
 
-export const usePixelStore = create<PixelStore>((set, get) => {
+const pixelStoreCreator: StateCreator<PixelStore> = (set, get) => {
   const width = 1024
   const height = 1024
   let pixels = new Uint8Array(width * height)
@@ -434,6 +436,10 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ viewport: { ...s.viewport, offsetX: ox, offsetY: oy } })
     }
   }
-})
+}
+
+export const createPixelStore = () => createStore(pixelStoreCreator)
+
+export const usePixelStore = create<PixelStore>(pixelStoreCreator)
 
 export default usePixelStore
