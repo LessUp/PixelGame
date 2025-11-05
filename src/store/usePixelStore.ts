@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import wsClient, { type ServerMessage, type PixelUpdate } from '../services/wsClient'
 
 type Viewport = {
   scale: number
@@ -55,9 +56,13 @@ type PixelStore = {
   // websocket adapter (optional)
   wsEnabled: boolean
   wsUrl: string
+  wsStatus: 'disconnected' | 'connecting' | 'connected' | 'error'
+  wsError: string | null
+  wsLastHeartbeat: number | null
+  setWsUrl: (url: string) => void
   connectWS: (url?: string) => void
   disconnectWS: () => void
-  applyRemotePixels: (list: Array<{ x: number; y: number; c: number }>) => void
+  applyRemotePixels: (payload: ServerMessage | PixelUpdate[] | null | undefined) => void
   showGrid: boolean
   setShowGrid: (v: boolean) => void
   dirty: number[]
@@ -109,7 +114,6 @@ export const usePixelStore = create<PixelStore>((set, get) => {
   const width = 1024
   const height = 1024
   let pixels = new Uint8Array(width * height)
-  let ws: WebSocket | null = null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -185,79 +189,135 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         set({ version: get().version + 1, history: h, dirty: d, selection: null, lastPlacedAt: Date.now() })
         get().save()
         // broadcast simplified change as a list may be large; send bbox + color
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          try { ws.send(JSON.stringify({ t: 'fillRect', x0, y0, x1, y1, c: col })) } catch {}
-        }
+        wsClient.sendFillRect(x0, y0, x1, y1, col)
       }
       return changed
     },
     wsEnabled: false,
     wsUrl: '',
+    wsStatus: 'disconnected',
+    wsError: null,
+    wsLastHeartbeat: null,
+    setWsUrl: (url: string) => set({ wsUrl: url.trim() }),
     connectWS: (url) => {
-      const target = url || get().wsUrl
-      if (!target) return
+      const target = (url || get().wsUrl).trim()
+      if (!target) {
+        set({ wsError: '请先输入服务器地址', wsStatus: 'error' })
+        return
+      }
+      set({ wsUrl: target, wsStatus: 'connecting', wsError: null })
       try {
-        if (ws) { try { ws.close() } catch {} }
-        ws = new WebSocket(target)
-        ws.onopen = () => set({ wsEnabled: true, wsUrl: target })
-        ws.onclose = () => set({ wsEnabled: false })
-        ws.onerror = () => set({ wsEnabled: false })
-        ws.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data)
-            if (msg.t === 'place') {
-              const x = msg.x|0, y = msg.y|0, c = msg.c|0
-              if (x>=0 && y>=0 && x<get().width && y<get().height) {
-                const idx = y * get().width + x
-                const prev = get().pixels[idx]
-                if (prev !== c) {
-                  get().pixels[idx] = c
-                  const d = get().dirty
-                  if (d.length < 10000) d.push(idx)
-                  set({ version: get().version + 1, dirty: d })
-                }
-              }
-            } else if (msg.t === 'fillRect') {
-              const { x0, y0, x1, y1, c } = msg
-              const d = get().dirty
-              for (let y = y0; y <= y1; y++) {
-                for (let x = x0; x <= x1; x++) {
-                  if (x<0||y<0||x>=get().width||y>=get().height) continue
-                  const idx = y * get().width + x
-                  const prev = get().pixels[idx]
-                  if (prev !== c) {
-                    get().pixels[idx] = c
-                    if (d.length < 10000) d.push(idx)
-                  }
-                }
-              }
-              set({ version: get().version + 1, dirty: d })
-            } else if (msg.t === 'multi') {
-              const arr = Array.isArray(msg.list) ? msg.list : []
-              get().applyRemotePixels(arr)
+        const connected = wsClient.connect(target, {
+          onOpen: () => set({ wsEnabled: true, wsStatus: 'connected', wsError: null, wsLastHeartbeat: Date.now() }),
+          onClose: () => set((state) => ({ wsEnabled: false, wsStatus: state.wsStatus === 'connecting' ? 'connecting' : 'disconnected' })),
+          onError: (message) => {
+            set({ wsEnabled: false, wsStatus: 'error', wsError: message || 'WebSocket 连接异常' })
+          },
+          onReconnect: () => set({ wsStatus: 'connecting' }),
+          onHeartbeat: (timestamp) => set({ wsLastHeartbeat: timestamp, wsStatus: 'connected' }),
+          onMessage: (msg) => {
+            try {
+              get().applyRemotePixels(msg)
+            } catch (err) {
+              console.warn('[ws] 处理消息失败', err)
             }
-          } catch {}
+          },
+        })
+        if (!connected) {
+          set({ wsEnabled: false, wsStatus: 'error', wsError: '当前环境不支持 WebSocket' })
         }
-      } catch {}
+      } catch (err) {
+        console.error('[ws] 连接失败', err)
+        set({ wsEnabled: false, wsStatus: 'error', wsError: '连接 WebSocket 时发生异常' })
+      }
     },
     disconnectWS: () => {
-      try { if (ws) ws.close() } catch {}
-      ws = null
-      set({ wsEnabled: false })
-    },
-    applyRemotePixels: (list) => {
-      const d = get().dirty
-      for (const it of list) {
-        const x = it.x|0, y = it.y|0, c = it.c|0
-        if (x<0||y<0||x>=get().width||y>=get().height) continue
-        const idx = y * get().width + x
-        const prev = get().pixels[idx]
-        if (prev !== c) {
-          get().pixels[idx] = c
-          if (d.length < 10000) d.push(idx)
-        }
+      try {
+        wsClient.disconnect()
+      } catch (err) {
+        console.warn('[ws] 主动断开时发生异常', err)
       }
-      set({ version: get().version + 1, dirty: d })
+      set({ wsEnabled: false, wsStatus: 'disconnected' })
+    },
+    applyRemotePixels: (payload) => {
+      if (!payload) return
+
+      const applyBatch = (list: PixelUpdate[]) => {
+        if (!Array.isArray(list) || !list.length) return
+        const d = get().dirty
+        let changed = false
+        for (const it of list) {
+          const x = it.x | 0
+          const y = it.y | 0
+          const c = it.c | 0
+          if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
+          const idx = y * get().width + x
+          const prev = get().pixels[idx]
+          if (prev !== c) {
+            get().pixels[idx] = c
+            if (d.length < 10000) d.push(idx)
+            changed = true
+          }
+        }
+        if (changed) set({ version: get().version + 1, dirty: d })
+      }
+
+      if (Array.isArray(payload)) {
+        applyBatch(payload)
+        return
+      }
+
+      const msg = payload as ServerMessage
+      switch (msg.t) {
+        case 'place':
+          applyBatch([{ x: msg.x, y: msg.y, c: msg.c }])
+          break
+        case 'multi':
+        case 'batch':
+        case 'pixels':
+          applyBatch(Array.isArray(msg.list) ? msg.list : [])
+          break
+        case 'fillRect': {
+          const { x0, y0, x1, y1, c } = msg
+          const d = get().dirty
+          let changed = false
+          for (let y = y0; y <= y1; y++) {
+            for (let x = x0; x <= x1; x++) {
+              if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
+              const idx = y * get().width + x
+              const prev = get().pixels[idx]
+              if (prev !== c) {
+                get().pixels[idx] = c
+                if (d.length < 10000) d.push(idx)
+                changed = true
+              }
+            }
+          }
+          if (changed) set({ version: get().version + 1, dirty: d })
+          break
+        }
+        case 'pong':
+        case 'heartbeat':
+        case 'hb':
+        case 'ack':
+          set({ wsLastHeartbeat: Date.now(), wsStatus: 'connected' })
+          break
+        case 'error': {
+          const message = typeof msg.message === 'string' ? msg.message : '服务器返回错误'
+          console.error('[ws] 服务器错误', msg)
+          set({ wsError: message, wsStatus: 'error' })
+          break
+        }
+        case 'denied':
+        case 'forbidden': {
+          const message = (msg.message || (msg as any).reason || '权限不足') as string
+          console.warn('[ws] 权限不足', msg)
+          set({ wsError: message, wsStatus: 'error' })
+          break
+        }
+        default:
+          console.debug('[ws] 未识别的消息类型', msg)
+      }
     },
     gridColor: '#ffffff',
     gridAlpha: 0.08,
@@ -303,9 +363,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ version: get().version + 1, lastPlacedAt: Date.now(), history: h, dirty: d })
       get().save()
       // broadcast if ws connected
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        try { ws.send(JSON.stringify({ t: 'place', x, y, c: col })) } catch {}
-      }
+      wsClient.sendPlacePixel(x, y, col)
       return true
     },
     pickColor: (x, y) => {

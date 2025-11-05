@@ -21,6 +21,14 @@ export default function Controls() {
   const setHistoryLimit = usePixelStore(s => s.setHistoryLimit)
   const exportHash = usePixelStore(s => s.exportHash)
   const applyHash = usePixelStore(s => s.applyHash)
+  const wsUrl = usePixelStore(s => s.wsUrl)
+  const setWsUrl = usePixelStore(s => s.setWsUrl)
+  const connectWS = usePixelStore(s => s.connectWS)
+  const disconnectWS = usePixelStore(s => s.disconnectWS)
+  const wsEnabled = usePixelStore(s => s.wsEnabled)
+  const wsStatus = usePixelStore(s => s.wsStatus)
+  const wsError = usePixelStore(s => s.wsError)
+  const wsLastHeartbeat = usePixelStore(s => s.wsLastHeartbeat)
 
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -104,6 +112,45 @@ export default function Controls() {
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={() => {
           applyHash(location.hash)
         }}>应用当前链接</button>
+      </div>
+      <div className="space-y-2 pt-4 border-t border-white/10">
+        <h3 className="text-sm font-medium text-white/80">联机</h3>
+        <div className="space-y-2">
+          <label className="block text-xs text-white/60">服务器地址</label>
+          <input
+            className="w-full rounded border border-white/20 bg-neutral-900 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-sky-500"
+            placeholder="wss://example.com/ws"
+            value={wsUrl}
+            onChange={e => setWsUrl(e.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 disabled:bg-neutral-700 disabled:text-white/40"
+              onClick={() => connectWS(wsUrl)}
+              disabled={!wsUrl.trim() || wsStatus === 'connecting'}
+            >
+              {wsStatus === 'connecting' ? '连接中…' : '连接服务器'}
+            </button>
+            <button
+              className="px-3 py-1.5 rounded bg-neutral-700 hover:bg-neutral-600"
+              onClick={disconnectWS}
+            >
+              断开连接
+            </button>
+            <span className={`text-xs ${wsEnabled ? 'text-emerald-400' : wsStatus === 'error' ? 'text-red-400' : 'text-white/60'}`}>
+              状态：{wsEnabled ? '已连接' : wsStatus === 'connecting' ? '连接中' : wsStatus === 'error' ? '连接异常' : '未连接'}
+            </span>
+          </div>
+          <div className="text-xs text-white/60">
+            <div>wsEnabled：{wsEnabled ? 'true' : 'false'}</div>
+            {wsLastHeartbeat && (
+              <div>最近心跳：{new Date(wsLastHeartbeat).toLocaleTimeString()}</div>
+            )}
+          </div>
+          {wsError && (
+            <div className="text-xs text-red-400">{wsError}</div>
+          )}
+        </div>
       </div>
       <input ref={fileRef} className="hidden" type="file" accept="application/json" onChange={onFileChange} />
     </div>
