@@ -69,6 +69,25 @@ class MockCanvasRenderingContext2D {
 
 g.CanvasRenderingContext2D = MockCanvasRenderingContext2D as unknown as typeof CanvasRenderingContext2D
 
+class MockCanvasElement {
+  width = 0
+  height = 0
+  private ctx = new MockCanvasRenderingContext2D()
+
+  getContext(type: string) {
+    if (type === '2d') return this.ctx as unknown as CanvasRenderingContext2D
+    return null
+  }
+
+  toDataURL() {
+    return 'data:image/png;base64,mock'
+  }
+}
+
+if (!win.HTMLCanvasElement) {
+  win.HTMLCanvasElement = MockCanvasElement as unknown as typeof HTMLCanvasElement
+}
+
 const ensureCanvas = () => {
   const prototype = win.HTMLCanvasElement?.prototype
   if (!prototype) return
@@ -84,6 +103,25 @@ const ensureCanvas = () => {
 
 ensureCanvas()
 
+const ensureDocument = () => {
+  if (win.document) {
+    g.document = win.document
+    return
+  }
+  const doc = {
+    createElement(tag: string) {
+      if (tag.toLowerCase() === 'canvas') {
+        return new (win.HTMLCanvasElement as unknown as { new (): HTMLCanvasElement })()
+      }
+      return { tagName: tag.toUpperCase() }
+    },
+  } as unknown as Document
+  win.document = doc
+  g.document = doc
+}
+
+ensureDocument()
+
 if (!win.requestAnimationFrame) {
   win.requestAnimationFrame = (cb: FrameRequestCallback) =>
     Number(setTimeout(() => cb(performance.now()), 16))
@@ -96,6 +134,27 @@ if (!win.cancelAnimationFrame) {
 }
 
 win.performance = win.performance || g.performance
-win.navigator = win.navigator ?? ({ userAgent: 'vitest-jsdom' } as Navigator)
+
+if (!win.navigator) {
+  Object.defineProperty(win, 'navigator', {
+    configurable: true,
+    writable: true,
+    value: { userAgent: 'vitest-jsdom' },
+  })
+} else if (!('userAgent' in win.navigator)) {
+  try {
+    ;(win.navigator as Navigator & { userAgent?: string }).userAgent = 'vitest-jsdom'
+  } catch {
+    Object.defineProperty(win, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: { ...win.navigator, userAgent: 'vitest-jsdom' },
+    })
+  }
+}
+
+if (!g.navigator) {
+  g.navigator = win.navigator
+}
 
 export {}

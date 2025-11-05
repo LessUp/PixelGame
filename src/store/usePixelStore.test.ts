@@ -1,5 +1,4 @@
-import { act } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, beforeEach, describe, expect, it, vi } from '../test/harness'
 import { createPixelStore } from './usePixelStore'
 
 describe('usePixelStore core actions', () => {
@@ -64,7 +63,6 @@ describe('usePixelStore core actions', () => {
     })
 
     expect(store.getState().pixels[idx]).toBe(6)
-
     act(() => {
       store.getState().undo()
     })

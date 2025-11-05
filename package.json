@@ -8,9 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:bench": "vitest run performance"
+    "test": "node ./scripts/test-runner.mjs",
+    "test:bench": "node ./scripts/test-runner.mjs performance"
   },
   "dependencies": {
     "react": "^19.1.1",
@@ -30,11 +29,8 @@
     "globals": "^16.4.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.16",
-    "jsdom": "^24.1.3",
-    "tinybench": "^2.8.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
-    "vite": "^7.1.7",
-    "vitest": "^2.1.4"
+    "vite": "^7.1.7"
   }
 }
