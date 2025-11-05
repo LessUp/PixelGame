@@ -216,7 +216,11 @@ class WSClient {
     this.log('warn', '心跳超时，准备重连')
     this.callbacks?.onError?.('心跳超时')
     if (this.ws) {
-      try { this.ws.close() } catch {}
+      try {
+        this.ws.close()
+      } catch (err) {
+        this.log('warn', '关闭 WebSocket 连接时触发异常', err)
+      }
     }
   }
 
@@ -258,7 +262,9 @@ class WSClient {
       } else {
         logger.call(console, `[ws] ${message}`)
       }
-    } catch {}
+    } catch (err) {
+      console.error('[ws] 输出日志失败', err)
+    }
   }
 }
 

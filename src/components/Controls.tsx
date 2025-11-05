@@ -21,6 +21,11 @@ export default function Controls() {
   const setHistoryLimit = usePixelStore(s => s.setHistoryLimit)
   const exportHash = usePixelStore(s => s.exportHash)
   const applyHash = usePixelStore(s => s.applyHash)
+  const tool = usePixelStore(s => s.tool)
+  const setTool = usePixelStore(s => s.setTool)
+  const selection = usePixelStore(s => s.selection)
+  const fillSelection = usePixelStore(s => s.fillSelection)
+  const clearSelection = usePixelStore(s => s.clearSelection)
   const wsUrl = usePixelStore(s => s.wsUrl)
   const setWsUrl = usePixelStore(s => s.setWsUrl)
   const connectWS = usePixelStore(s => s.connectWS)
@@ -66,6 +71,56 @@ export default function Controls() {
 
   return (
     <div className="space-y-2">
+      <div className="space-y-2">
+        <h3 className="text-sm font-medium text-white/80">工具</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            className={`px-3 py-2 rounded border transition ${tool === 'paint' ? 'border-sky-400 bg-sky-600/20 text-white' : 'border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white/80'}`}
+            onClick={() => setTool('paint')}
+            aria-pressed={tool === 'paint'}
+          >
+            画笔工具 (B)
+          </button>
+          <button
+            className={`px-3 py-2 rounded border transition ${tool === 'selectRect' ? 'border-sky-400 bg-sky-600/20 text-white' : 'border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white/80'}`}
+            onClick={() => setTool('selectRect')}
+            aria-pressed={tool === 'selectRect'}
+          >
+            选框工具 (M)
+          </button>
+        </div>
+        <p className="text-xs text-white/60">
+          当前工具：{tool === 'paint' ? '画笔（左键/轻触绘制，Alt 吸管）' : '矩形选框（拖拽框选，F 填充，Esc 取消）'}
+        </p>
+        {tool === 'selectRect' && (
+          <div className="space-y-2 rounded border border-sky-500/30 bg-sky-500/5 p-3">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 disabled:bg-neutral-700 disabled:text-white/40"
+                onClick={() => fillSelection()}
+                disabled={!selection}
+              >
+                填充选区 (F)
+              </button>
+              <button
+                className="px-3 py-2 rounded bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800/80 disabled:text-white/30"
+                onClick={() => clearSelection()}
+                disabled={!selection}
+              >
+                取消选择 (Esc)
+              </button>
+            </div>
+            {selection ? (
+              <p className="text-xs text-white/60">
+                选区：({Math.min(selection.x0, selection.x1)}, {Math.min(selection.y0, selection.y1)}) → ({Math.max(selection.x0, selection.x1)}, {Math.max(selection.y0, selection.y1)})
+              </p>
+            ) : (
+              <p className="text-xs text-white/40">点击或拖拽画布以创建选区</p>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={undo}>撤销 (Ctrl+Z)</button>
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40" onClick={clear}>清空</button>
@@ -103,12 +158,16 @@ export default function Controls() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 pt-2">
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={async () => {
-          const hash = exportHash()
-          const url = `${location.origin}${location.pathname}${hash}`
-          location.hash = hash
-          try { await navigator.clipboard.writeText(url) } catch {}
-        }}>复制分享链接</button>
+          <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={async () => {
+            const hash = exportHash()
+            const url = `${location.origin}${location.pathname}${hash}`
+            location.hash = hash
+            try {
+              await navigator.clipboard.writeText(url)
+            } catch (err) {
+              console.warn('[controls] 复制链接失败', err)
+            }
+          }}>复制分享链接</button>
         <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={() => {
           applyHash(location.hash)
         }}>应用当前链接</button>

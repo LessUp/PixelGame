@@ -1,4 +1,5 @@
-import { create } from 'zustand'
+import { create, type StateCreator } from 'zustand'
+import { createStore } from 'zustand/vanilla'
 import wsClient, { type ServerMessage, type PixelUpdate } from '../services/wsClient'
 
 type Viewport = {
@@ -11,7 +12,7 @@ type Tool = 'paint' | 'selectRect'
 
 type HistoryItem = { idx: number; prev: number; next: number }
 
-type PixelStore = {
+export type PixelStore = {
   width: number
   height: number
   pixels: Uint8Array
@@ -78,6 +79,12 @@ type PixelStore = {
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
+const warn = (message: string, err: unknown) => {
+  if (typeof console !== 'undefined') {
+    console.warn(`[pixel-store] ${message}`, err)
+  }
+}
+
 function u8ToB64(u8: Uint8Array): string {
   let out = ''
   const CHUNK = 0x8000
@@ -110,10 +117,17 @@ const defaultPalette: string[] = [
 
 const STORAGE_KEY = 'pixel-board-v1'
 
-export const usePixelStore = create<PixelStore>((set, get) => {
+type PixelStoreDeps = {
+  wsClient?: typeof wsClient
+}
+
+type PlaceMessage = Extract<ServerMessage, { t: 'place' }>
+type FillRectMessage = Extract<ServerMessage, { t: 'fillRect' }>
+
+const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore, [], []> => (set, get) => {
   const width = 1024
   const height = 1024
-  let pixels = new Uint8Array(width * height)
+  const pixels = new Uint8Array(width * height)
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -123,7 +137,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         if (u8.length === pixels.length) pixels.set(u8)
       }
     }
-  } catch {}
+  } catch (err) {
+    warn('读取本地存档失败', err)
+  }
 
   return {
     width,
@@ -189,7 +205,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         set({ version: get().version + 1, history: h, dirty: d, selection: null, lastPlacedAt: Date.now() })
         get().save()
         // broadcast simplified change as a list may be large; send bbox + color
-        wsClient.sendFillRect(x0, y0, x1, y1, col)
+        socket.sendFillRect(x0, y0, x1, y1, col)
       }
       return changed
     },
@@ -207,7 +223,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       }
       set({ wsUrl: target, wsStatus: 'connecting', wsError: null })
       try {
-        const connected = wsClient.connect(target, {
+        const connected = socket.connect(target, {
           onOpen: () => set({ wsEnabled: true, wsStatus: 'connected', wsError: null, wsLastHeartbeat: Date.now() }),
           onClose: () => set((state) => ({ wsEnabled: false, wsStatus: state.wsStatus === 'connecting' ? 'connecting' : 'disconnected' })),
           onError: (message) => {
@@ -233,7 +249,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
     },
     disconnectWS: () => {
       try {
-        wsClient.disconnect()
+        socket.disconnect()
       } catch (err) {
         console.warn('[ws] 主动断开时发生异常', err)
       }
@@ -269,16 +285,18 @@ export const usePixelStore = create<PixelStore>((set, get) => {
 
       const msg = payload as ServerMessage
       switch (msg.t) {
-        case 'place':
-          applyBatch([{ x: msg.x, y: msg.y, c: msg.c }])
+        case 'place': {
+          const { x, y, c } = msg as PlaceMessage
+          applyBatch([{ x, y, c }])
           break
+        }
         case 'multi':
         case 'batch':
         case 'pixels':
           applyBatch(Array.isArray(msg.list) ? msg.list : [])
           break
         case 'fillRect': {
-          const { x0, y0, x1, y1, c } = msg
+          const { x0, y0, x1, y1, c } = msg as FillRectMessage
           const d = get().dirty
           let changed = false
           for (let y = y0; y <= y1; y++) {
@@ -310,7 +328,12 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         }
         case 'denied':
         case 'forbidden': {
-          const message = (msg.message || (msg as any).reason || '权限不足') as string
+          const reason = 'reason' in msg ? msg.reason : undefined
+          const message = typeof msg.message === 'string'
+            ? msg.message
+            : typeof reason === 'string'
+              ? reason
+              : '权限不足'
           console.warn('[ws] 权限不足', msg)
           set({ wsError: message, wsStatus: 'error' })
           break
@@ -363,7 +386,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ version: get().version + 1, lastPlacedAt: Date.now(), history: h, dirty: d })
       get().save()
       // broadcast if ws connected
-      wsClient.sendPlacePixel(x, y, col)
+      socket.sendPlacePixel(x, y, col)
       return true
     },
     pickColor: (x, y) => {
@@ -390,7 +413,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         const b64 = u8ToB64(s.pixels)
         const payload = { w: s.width, h: s.height, b64, s: s.selected }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-      } catch {}
+      } catch (err) {
+        warn('保存像素数据失败', err)
+      }
     },
     exportHash: () => {
       const s = get()
@@ -423,7 +448,8 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         if (typeof obj.ga === 'number') set({ gridAlpha: clamp(obj.ga, 0, 1) })
         if (typeof obj.gs === 'number') set({ gridMinScale: clamp(Math.round(obj.gs), 1, 64) })
         return true
-      } catch {
+      } catch (err) {
+        warn('解析分享链接失败', err)
         return false
       }
     },
@@ -437,7 +463,9 @@ export const usePixelStore = create<PixelStore>((set, get) => {
           if (u8.length === get().pixels.length) get().pixels.set(u8)
           set({ version: get().version + 1, selected: typeof obj.s === 'number' ? obj.s : get().selected, fullRedraw: true, dirty: [] })
         }
-      } catch {}
+      } catch (err) {
+        warn('加载像素数据失败', err)
+      }
     },
     clear: () => {
       get().pixels.fill(0)
@@ -481,7 +509,8 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         set({ version: get().version + 1, fullRedraw: true, dirty: [] })
         get().save()
         return true
-      } catch {
+      } catch (err) {
+        warn('解析分享链接失败', err)
         return false
       }
     },
@@ -490,8 +519,13 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       const ox = s.canvasW / 2 - x * s.viewport.scale
       const oy = s.canvasH / 2 - y * s.viewport.scale
       set({ viewport: { ...s.viewport, offsetX: ox, offsetY: oy } })
-    }
+    },
   }
-})
+}
+
+export const createPixelStore = (deps: PixelStoreDeps = {}) =>
+  createStore<PixelStore>(createPixelStoreState(deps.wsClient ?? wsClient))
+
+export const usePixelStore = create<PixelStore>(createPixelStoreState(wsClient))
 
 export default usePixelStore
