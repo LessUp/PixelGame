@@ -30,7 +30,6 @@ type HarnessState = {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __pixelHarness: HarnessState | undefined
 }
 

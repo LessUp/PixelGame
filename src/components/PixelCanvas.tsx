@@ -24,7 +24,6 @@ export default function PixelCanvas() {
   const gridColor = usePixelStore(s => s.gridColor)
   const gridAlpha = usePixelStore(s => s.gridAlpha)
   const gridMinScale = usePixelStore(s => s.gridMinScale)
-  const tool = usePixelStore(s => s.tool)
   const selection = usePixelStore(s => s.selection)
   const startSelection = usePixelStore(s => s.startSelection)
   const updateSelection = usePixelStore(s => s.updateSelection)
@@ -167,24 +166,24 @@ export default function PixelCanvas() {
     }
     raf = requestAnimationFrame(render)
     return () => cancelAnimationFrame(raf)
-  }, [viewport, hover, setCanvasSize, showGrid, gridColor, gridAlpha, gridMinScale])
+  }, [viewport, hover, setCanvasSize, showGrid, gridColor, gridAlpha, gridMinScale, width, height, selection])
 
   useEffect(() => {
-    const canvas = canvasRef.current!
+    const canvas = canvasRef.current
     if (!canvas) return
 
-    // Observe size changes
-    const ro = new ResizeObserver(() => {
+    const observeSize = new ResizeObserver(() => {
       const rect = canvas.getBoundingClientRect()
       setCanvasSize(rect.width, rect.height)
     })
-    ro.observe(canvas)
+    observeSize.observe(canvas)
 
+    const pointers = new Map<number, { x: number; y: number }>()
     let isPanning = false
+    let isSelecting = false
     let lastX = 0
     let lastY = 0
     let touchMoved = false
-    const pointers = new Map<number, { x: number; y: number }>()
     let pinchStartDist = 0
     let pinchStartScale = 1
     let pinchAnchor = { x: 0, y: 0 }
@@ -196,207 +195,244 @@ export default function PixelCanvas() {
     let lastTapX = 0
     let lastTapY = 0
 
-    const onPointerDown = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+    const clearLongPress = () => {
+      if (longPressTimer !== null) {
+        window.clearTimeout(longPressTimer)
+        longPressTimer = null
+      }
+    }
 
+    const getPointerInfo = (ev: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      const x = ev.clientX - rect.left
+      const y = ev.clientY - rect.top
+      const vp = usePixelStore.getState().viewport
+      const gx = Math.floor((x - vp.offsetX) / vp.scale)
+      const gy = Math.floor((y - vp.offsetY) / vp.scale)
+      return { rect, x, y, gx, gy, vp }
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      const info = getPointerInfo(e)
       if (e.pointerType === 'touch') {
-        pointers.set(e.pointerId, { x, y })
+        pointers.set(e.pointerId, { x: info.x, y: info.y })
         if (pointers.size === 2) {
-          // start pinch
           const arr = Array.from(pointers.values())
           const dx = arr[0].x - arr[1].x
           const dy = arr[0].y - arr[1].y
           pinchStartDist = Math.hypot(dx, dy)
-          pinchStartScale = usePixelStore.getState().viewport.scale
+          pinchStartScale = info.vp.scale
           pinchAnchor = { x: (arr[0].x + arr[1].x) / 2, y: (arr[0].y + arr[1].y) / 2 }
-        } else if (pointers.size === 1) {
-          isPanning = true
-          lastX = x
-          lastY = y
-          startX = x
-          startY = y
-          touchMoved = false
-          longPressTriggered = false
-          if (longPressTimer) window.clearTimeout(longPressTimer)
-          longPressTimer = window.setTimeout(() => {
-            const vp = usePixelStore.getState().viewport
-            const gx = Math.floor((x - vp.offsetX) / vp.scale)
-            const gy = Math.floor((y - vp.offsetY) / vp.scale)
-            usePixelStore.getState().pickColor(gx, gy)
-            longPressTriggered = true
-          }, 450)
+          isPanning = false
+          isSelecting = false
+        } else {
+          const currTool = usePixelStore.getState().tool
+          if (currTool === 'selectRect') {
+            isSelecting = true
+            startSelection(info.gx, info.gy)
+          } else {
+            isPanning = true
+            startX = info.x
+            startY = info.y
+            lastX = info.x
+            lastY = info.y
+            touchMoved = false
+            longPressTriggered = false
+            clearLongPress()
+            longPressTimer = window.setTimeout(() => {
+              const vp = usePixelStore.getState().viewport
+              const gx = Math.floor((info.x - vp.offsetX) / vp.scale)
+              const gy = Math.floor((info.y - vp.offsetY) / vp.scale)
+              usePixelStore.getState().pickColor(gx, gy)
+              longPressTriggered = true
+            }, 450)
+          }
         }
         canvas.setPointerCapture(e.pointerId)
         return
       }
 
-  // grid overlay
-  if (showGrid && scale >= gridMinScale) {
-    ctx.save()
-    const [gr, gg, gb] = hexToRgb(gridColor)
-    ctx.strokeStyle = `rgba(${gr},${gg},${gb},${gridAlpha})`
-    ctx.lineWidth = 1
-    // vertical
-    const startX = visX
-    const endX = visX + visW
-    for (let x = startX; x <= endX; x++) {
-      const px = Math.round(ox + x * scale) + 0.5
-      ctx.beginPath()
-      ctx.moveTo(px, Math.round(oy + visY * scale))
-      ctx.lineTo(px, Math.round(oy + (visY + visH) * scale))
-      ctx.stroke()
+      if (e.button === 0) {
+        const currTool = usePixelStore.getState().tool
+        if (currTool === 'selectRect') {
+          isSelecting = true
+          startSelection(info.gx, info.gy)
+        } else if (e.altKey) {
+          usePixelStore.getState().pickColor(info.gx, info.gy)
+        } else {
+          usePixelStore.getState().placePixel(info.gx, info.gy)
+        }
+        canvas.setPointerCapture(e.pointerId)
+        return
+      }
+
+      if (e.button === 1 || e.button === 2) {
+        isPanning = true
+        lastX = info.x
+        lastY = info.y
+        canvas.setPointerCapture(e.pointerId)
+      }
     }
-    // horizontal
-    const startY = visY
-    const endY = visY + visH
-    for (let y = startY; y <= endY; y++) {
-      const py = Math.round(oy + y * scale) + 0.5
-      ctx.beginPath()
-      ctx.moveTo(Math.round(ox + visX * scale), py)
-      ctx.lineTo(Math.round(ox + (visX + visW) * scale), py)
-      ctx.stroke()
-    }
-    ctx.restore()
-  }
 
-  // hover highlight
-  if (hover) {
-    ctx.save()
-    ctx.translate(ox, oy)
-    ctx.scale(scale, scale)
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)'
-    ctx.lineWidth = 1/scale
-    ctx.strokeRect(hover.x + 0.05, hover.y + 0.05, 0.9, 0.9)
-    ctx.restore()
-  }
-
-  if (selection) {
-    const x0 = Math.min(selection.x0, selection.x1)
-    const y0 = Math.min(selection.y0, selection.y1)
-    const x1 = Math.max(selection.x0, selection.x1)
-    const y1 = Math.max(selection.y0, selection.y1)
-    ctx.save()
-    ctx.translate(ox, oy)
-    ctx.scale(scale, scale)
-    ctx.strokeStyle = 'rgba(0,180,255,0.9)'
-    ctx.lineWidth = 1/scale
-    ctx.strokeRect(x0 + 0.02, y0 + 0.02, (x1 - x0 + 1) - 0.04, (y1 - y0 + 1) - 0.04)
-    ctx.restore()
-  }
-
-  raf = requestAnimationFrame(render)
-}
-raf = requestAnimationFrame(render)
-return () => cancelAnimationFrame(raf)
-}, [viewport, hover, setCanvasSize, showGrid, gridColor, gridAlpha, gridMinScale])
-
-useEffect(() => {
-const canvas = canvasRef.current!
-if (!canvas) return
-
-// Observe size changes
-const ro = new ResizeObserver(() => {
-  const rect = canvas.getBoundingClientRect()
-  setCanvasSize(rect.width, rect.height)
-})
-ro.observe(canvas)
-
-let isPanning = false
-let lastX = 0
-let lastY = 0
-let touchMoved = false
-const pointers = new Map<number, { x: number; y: number }>()
-let pinchStartDist = 0
-let pinchStartScale = 1
-let pinchAnchor = { x: 0, y: 0 }
-let startX = 0
-let startY = 0
-let longPressTimer: number | null = null
-let longPressTriggered = false
-let lastTapTime = 0
-let lastTapX = 0
-let lastTapY = 0
-
-const onPointerDown = (e: PointerEvent) => {
-  const rect = canvas.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-
-  if (e.pointerType === 'touch') {
-    pointers.set(e.pointerId, { x, y })
-    if (pointers.size === 2) {
-      // start pinch
-      const arr = Array.from(pointers.values())
-      const dx = arr[0].x - arr[1].x
-      const dy = arr[0].y - arr[1].y
-      pinchStartDist = Math.hypot(dx, dy)
-      pinchStartScale = usePixelStore.getState().viewport.scale
-      pinchAnchor = { x: (arr[0].x + arr[1].x) / 2, y: (arr[0].y + arr[1].y) / 2 }
-    } else if (pointers.size === 1) {
-      isPanning = true
-      lastX = x
-      lastY = y
-      startX = x
-      startY = y
-      touchMoved = false
-      longPressTriggered = false
-      if (longPressTimer) window.clearTimeout(longPressTimer)
-      longPressTimer = window.setTimeout(() => {
-        const vp = usePixelStore.getState().viewport
-        const gx = Math.floor((x - vp.offsetX) / vp.scale)
-        const gy = Math.floor((y - vp.offsetY) / vp.scale)
-        usePixelStore.getState().pickColor(gx, gy)
-        longPressTriggered = true
-      }, 450)
-    }
-    canvas.setPointerCapture(e.pointerId)
-    return
-  }
-
-  if (e.button === 0) {
-    const vp = usePixelStore.getState().viewport
-    const gx = Math.floor((x - vp.offsetX) / vp.scale)
-    const gy = Math.floor((y - vp.offsetY) / vp.scale)
-    const currTool = usePixelStore.getState().tool
-    if (currTool === 'selectRect') {
-      startSelection(gx, gy)
-    } else {
-      if (e.altKey) {
-        usePixelStore.getState().pickColor(gx, gy)
+    const onPointerMove = (e: PointerEvent) => {
+      const info = getPointerInfo(e)
+      const state = usePixelStore.getState()
+      if (info.gx >= 0 && info.gy >= 0 && info.gx < state.width && info.gy < state.height) {
+        setHover({ x: info.gx, y: info.gy })
       } else {
-        usePixelStore.getState().placePixel(gx, gy)
+        setHover(null)
       }
+
+      if (e.pointerType === 'touch') {
+        pointers.set(e.pointerId, { x: info.x, y: info.y })
+        if (pointers.size === 2 && pinchStartDist > 0) {
+          const arr = Array.from(pointers.values())
+          const dx = arr[0].x - arr[1].x
+          const dy = arr[0].y - arr[1].y
+          const dist = Math.hypot(dx, dy)
+          const factor = dist / Math.max(1, pinchStartDist)
+          state.setScale(pinchStartScale * factor, pinchAnchor)
+          return
+        }
+
+        if (isSelecting) {
+          updateSelection(info.gx, info.gy)
+          touchMoved = true
+          return
+        }
+
+        if (isPanning) {
+          if (!touchMoved) {
+            const dist = Math.hypot(info.x - startX, info.y - startY)
+            if (dist > 5) {
+              touchMoved = true
+              clearLongPress()
+            }
+          }
+          state.panBy(info.x - lastX, info.y - lastY)
+          lastX = info.x
+          lastY = info.y
+        }
+        return
       }
+
+      if (isSelecting && (e.buttons & 1 || e.type === 'pointerup')) {
+        updateSelection(info.gx, info.gy)
+        return
+      }
+
+      if (isPanning && (e.buttons & (1 | 2 | 4))) {
+        state.panBy(info.x - lastX, info.y - lastY)
+        lastX = info.x
+        lastY = info.y
+      }
+    }
+
+    const onPointerUp = (e: PointerEvent) => {
+      const info = getPointerInfo(e)
+      const state = usePixelStore.getState()
+
+      if (e.pointerType === 'touch') {
+        pointers.delete(e.pointerId)
+        if (pointers.size < 2) {
+          pinchStartDist = 0
+        }
+        canvas.releasePointerCapture(e.pointerId)
+
+        if (isSelecting) {
+          updateSelection(info.gx, info.gy)
+          isSelecting = false
+          touchMoved = false
+          clearLongPress()
+          return
+        }
+
+        const wasTap = !touchMoved && !longPressTriggered
+        const now = performance.now()
+        if (wasTap) {
+          const dt = now - lastTapTime
+          const dist = Math.hypot(info.x - lastTapX, info.y - lastTapY)
+          if (dt < 300 && dist < 20) {
+            const nextScale = state.viewport.scale > 1.5 ? 1 : Math.min(16, state.viewport.scale * 2)
+            state.setScale(nextScale, { x: info.x, y: info.y })
+          } else {
+            if (state.tool === 'selectRect') {
+              startSelection(info.gx, info.gy)
+              updateSelection(info.gx, info.gy)
+            } else {
+              state.placePixel(info.gx, info.gy)
+            }
+          }
+          lastTapTime = now
+          lastTapX = info.x
+          lastTapY = info.y
+        }
+
+        clearLongPress()
+        longPressTriggered = false
+        isPanning = false
+        touchMoved = false
+        return
+      }
+
+      if (isSelecting) {
+        updateSelection(info.gx, info.gy)
+        isSelecting = false
+      }
+
+      if (isPanning) {
+        isPanning = false
+      }
+
+      clearLongPress()
+      try {
+        canvas.releasePointerCapture(e.pointerId)
+      } catch {}
     }
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const rect = canvas.getBoundingClientRect()
       const anchor = { x: e.clientX - rect.left, y: e.clientY - rect.top }
-      const factor = e.deltaY > 0 ? 1/1.1 : 1.1
-      const ns = usePixelStore.getState().viewport.scale * factor
-      usePixelStore.getState().setScale(ns, anchor)
+      const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1
+      usePixelStore.getState().setScale(usePixelStore.getState().viewport.scale * factor, anchor)
+    }
+
+    const onPointerCancel = (e: PointerEvent) => {
+      pointers.delete(e.pointerId)
+      clearLongPress()
+      isPanning = false
+      isSelecting = false
+      touchMoved = false
+      try {
+        canvas.releasePointerCapture(e.pointerId)
+      } catch {}
     }
 
     const onContextMenu = (e: MouseEvent) => e.preventDefault()
 
+    const onPointerLeave = () => setHover(null)
+
     canvas.addEventListener('pointerdown', onPointerDown)
     canvas.addEventListener('pointermove', onPointerMove)
     canvas.addEventListener('pointerup', onPointerUp)
+    canvas.addEventListener('pointercancel', onPointerCancel)
+    canvas.addEventListener('pointerleave', onPointerLeave)
     canvas.addEventListener('wheel', onWheel, { passive: false })
     canvas.addEventListener('contextmenu', onContextMenu)
 
     return () => {
-      ro.disconnect()
+      observeSize.disconnect()
+      clearLongPress()
       canvas.removeEventListener('pointerdown', onPointerDown)
       canvas.removeEventListener('pointermove', onPointerMove)
       canvas.removeEventListener('pointerup', onPointerUp)
+      canvas.removeEventListener('pointercancel', onPointerCancel)
+      canvas.removeEventListener('pointerleave', onPointerLeave)
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [setCanvasSize])
+  }, [setCanvasSize, startSelection, updateSelection])
 
   return (
     <div className="w-full h-full bg-neutral-900">

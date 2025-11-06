@@ -110,7 +110,7 @@ const STORAGE_KEY = 'pixel-board-v1'
 const pixelStoreCreator: StateCreator<PixelStore> = (set, get) => {
   const width = 1024
   const height = 1024
-  let pixels = new Uint8Array(width * height)
+  const pixels = new Uint8Array(width * height)
   let ws: WebSocket | null = null
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
