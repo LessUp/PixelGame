@@ -1,4 +1,4 @@
-import { describe, expect, it } from '../test/harness'
+import { describe, expect, it } from 'vitest'
 import { createPixelStore } from './usePixelStore'
 
 describe('usePixelStore performance thresholds', () => {

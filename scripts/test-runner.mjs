@@ -44,21 +44,17 @@ async function loadModule(file) {
   await import(pathToFileURL(compiled).href)
 }
 
-async function main() {
-  const args = process.argv.slice(2)
-  const perfOnly = args.includes('performance')
-
+export async function run({ performanceOnly = false } = {}) {
   rmSync(outDir, { recursive: true, force: true })
   mkdirSync(outDir, { recursive: true })
 
   const setupFile = path.join(projectRoot, 'vitest.setup.ts')
   await loadModule(setupFile)
 
-  const pattern = perfOnly
-    ? /\.performance\.test\.ts$/
-    : /\.test\.ts$/
-
-  const allTests = findTests(path.join(projectRoot, 'src'), pattern)
+  const allTests = findTests(path.join(projectRoot, 'src'), /\.test\.ts$/).filter((file) => {
+    const isPerf = file.endsWith('.performance.test.ts')
+    return performanceOnly ? isPerf : !isPerf
+  })
 
   if (!allTests.length) {
     console.log('No test files matched pattern.')
@@ -90,4 +86,8 @@ async function main() {
   }
 }
 
-await main()
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const args = process.argv.slice(2)
+  const performanceOnly = args.includes('performance') || args.includes('--performance')
+  await run({ performanceOnly })
+}

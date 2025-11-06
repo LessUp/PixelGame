@@ -85,7 +85,7 @@ pixel/
 2. **自动化测试**：覆盖像素编码/解码、持久化、渲染辅助函数等核心逻辑。
 3. **性能压测**：在 CI 中加入离屏渲染与交互基准测试，监控性能回归。
 
-> 测试环境通过自定义的 Vitest 风格运行器结合 `vitest.setup.ts` 中的补丁来模拟 `CanvasRenderingContext2D` 与 `localStorage`，从而在 CI 中覆盖导入导出与离屏渲染逻辑。
+> 测试环境通过内置的 `vitest` 兼容运行器（见 `scripts/vitest-shim`）配合 `vitest.setup.ts` 中的补丁来模拟 `CanvasRenderingContext2D` 与 `localStorage`，从而在 CI 中覆盖导入导出与离屏渲染逻辑。
 
 ### 可访问性 & 国际化
 

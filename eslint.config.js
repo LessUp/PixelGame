@@ -28,7 +28,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/test/**/*', 'vitest.setup.ts'],
+    files: ['src/test/**/*', 'scripts/vitest-shim/**/*', 'vitest.setup.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },

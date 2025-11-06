@@ -1,4 +1,4 @@
-import { act, beforeEach, describe, expect, it, vi } from '../test/harness'
+import { act, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPixelStore } from './usePixelStore'
 
 describe('usePixelStore core actions', () => {

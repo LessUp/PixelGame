@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node ./scripts/test-runner.mjs",
-    "test:bench": "node ./scripts/test-runner.mjs performance"
+    "test": "vitest run",
+    "test:bench": "vitest run --performance"
   },
   "dependencies": {
     "react": "^19.1.1",
@@ -31,6 +31,7 @@
     "tailwindcss": "^4.1.16",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vitest": "file:scripts/vitest-shim"
   }
 }
