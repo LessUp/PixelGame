@@ -202,14 +202,16 @@ export const usePixelStore = create<PixelStore>((set, get) => {
     connectWS: (url) => {
       const target = url || get().wsUrl
       if (!target) return
-        try {
-          if (ws) {
-            try {
-              ws.close()
-            } catch {
-              /* ignore close error */
-            }
+
+      try {
+        if (ws) {
+          try {
+            ws.close()
+          } catch {
+            /* ignore close error */
           }
+        }
+
         ws = new WebSocket(target)
         ws.onopen = () => set({ wsEnabled: true, wsUrl: target })
         ws.onclose = () => set({ wsEnabled: false })
@@ -218,8 +220,10 @@ export const usePixelStore = create<PixelStore>((set, get) => {
           try {
             const msg = JSON.parse(ev.data)
             if (msg.t === 'place') {
-              const x = msg.x|0, y = msg.y|0, c = msg.c|0
-              if (x>=0 && y>=0 && x<get().width && y<get().height) {
+              const x = msg.x | 0
+              const y = msg.y | 0
+              const c = msg.c | 0
+              if (x >= 0 && y >= 0 && x < get().width && y < get().height) {
                 const idx = y * get().width + x
                 const prev = get().pixels[idx]
                 if (prev !== c) {
@@ -234,7 +238,7 @@ export const usePixelStore = create<PixelStore>((set, get) => {
               const d = get().dirty
               for (let y = y0; y <= y1; y++) {
                 for (let x = x0; x <= x1; x++) {
-                  if (x<0||y<0||x>=get().width||y>=get().height) continue
+                  if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
                   const idx = y * get().width + x
                   const prev = get().pixels[idx]
                   if (prev !== c) {
@@ -268,8 +272,10 @@ export const usePixelStore = create<PixelStore>((set, get) => {
     applyRemotePixels: (list) => {
       const d = get().dirty
       for (const it of list) {
-        const x = it.x|0, y = it.y|0, c = it.c|0
-        if (x<0||y<0||x>=get().width||y>=get().height) continue
+        const x = (it.x | 0)
+        const y = (it.y | 0)
+        const c = (it.c | 0)
+        if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
         const idx = y * get().width + x
         const prev = get().pixels[idx]
         if (prev !== c) {
@@ -323,13 +329,13 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       set({ version: get().version + 1, lastPlacedAt: Date.now(), history: h, dirty: d })
       get().save()
       // broadcast if ws connected
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          try {
-            ws.send(JSON.stringify({ t: 'place', x, y, c: col }))
-          } catch {
-            /* ignore network send failure */
-          }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ t: 'place', x, y, c: col }))
+        } catch {
+          /* ignore network send failure */
         }
+      }
       return true
     },
     pickColor: (x, y) => {
@@ -350,16 +356,16 @@ export const usePixelStore = create<PixelStore>((set, get) => {
       while (h.length > lim) h.shift()
       set({ historyLimit: lim, history: h })
     },
-      save: () => {
-        try {
-          const s = get()
-          const b64 = u8ToB64(s.pixels)
-          const payload = { w: s.width, h: s.height, b64, s: s.selected }
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-        } catch {
-          /* ignore persist failure */
-        }
-      },
+    save: () => {
+      try {
+        const s = get()
+        const b64 = u8ToB64(s.pixels)
+        const payload = { w: s.width, h: s.height, b64, s: s.selected }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      } catch {
+        /* ignore persist failure */
+      }
+    },
     exportHash: () => {
       const s = get()
       const obj = {
@@ -403,11 +409,16 @@ export const usePixelStore = create<PixelStore>((set, get) => {
         if (obj && obj.w === get().width && obj.h === get().height && typeof obj.b64 === 'string') {
           const u8 = b64ToU8(obj.b64)
           if (u8.length === get().pixels.length) get().pixels.set(u8)
-          set({ version: get().version + 1, selected: typeof obj.s === 'number' ? obj.s : get().selected, fullRedraw: true, dirty: [] })
+          set({
+            version: get().version + 1,
+            selected: typeof obj.s === 'number' ? obj.s : get().selected,
+            fullRedraw: true,
+            dirty: [],
+          })
         }
-        } catch {
-          /* ignore load failure */
-        }
+      } catch {
+        /* ignore load failure */
+      }
     },
     clear: () => {
       get().pixels.fill(0)

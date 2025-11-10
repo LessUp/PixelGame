@@ -199,7 +199,8 @@ export default function Controls() {
       </div>
       <div className="grid grid-cols-2 gap-2 pt-2">
         <button
-          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10"
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          title="复制当前视角与选色的分享链接"
           onClick={async () => {
             const hash = exportHash()
             const url = `${location.origin}${location.pathname}${hash}`
@@ -212,7 +213,8 @@ export default function Controls() {
           }}
         >复制分享链接</button>
         <button
-          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10"
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          title="从当前页面 URL 恢复视角、颜色与网格设置"
           onClick={() => {
             applyHash(location.hash)
           }}
