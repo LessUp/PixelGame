@@ -75,7 +75,7 @@ export default function MiniMap() {
     ctx.lineWidth = 1/scale
     ctx.strokeRect(x1 + 0.5, y1 + 0.5, Math.max(0, x2 - x1 - 1), Math.max(0, y2 - y1 - 1))
     ctx.restore()
-  }, [canvasH, canvasW, height, viewport, width])
+  }, [width, height, viewport, canvasW, canvasH])
 
   useEffect(() => { draw() }, [draw, version])
 

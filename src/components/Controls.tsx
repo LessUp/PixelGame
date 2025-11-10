@@ -72,63 +72,111 @@ export default function Controls() {
   return (
     <div className="space-y-2">
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-white/80">工具</h3>
         <div className="grid grid-cols-2 gap-2">
           <button
-            className={`px-3 py-2 rounded border transition ${tool === 'paint' ? 'border-sky-400 bg-sky-600/20 text-white' : 'border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white/80'}`}
-            onClick={() => setTool('paint')}
+            className={`px-3 py-2 rounded border text-sm transition-colors ${
+              tool === 'paint'
+                ? 'bg-sky-700/70 border-sky-400/60 text-white'
+                : 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white/90'
+            }`}
             aria-pressed={tool === 'paint'}
+            title="快捷键：B"
+            onClick={() => setTool('paint')}
           >
-            画笔工具 (B)
+            画笔 (B)
           </button>
           <button
-            className={`px-3 py-2 rounded border transition ${tool === 'selectRect' ? 'border-sky-400 bg-sky-600/20 text-white' : 'border-white/10 bg-neutral-800 hover:bg-neutral-700 text-white/80'}`}
-            onClick={() => setTool('selectRect')}
+            className={`px-3 py-2 rounded border text-sm transition-colors ${
+              tool === 'selectRect'
+                ? 'bg-sky-700/70 border-sky-400/60 text-white'
+                : 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white/90'
+            }`}
             aria-pressed={tool === 'selectRect'}
+            title="快捷键：M"
+            onClick={() => setTool('selectRect')}
           >
-            选框工具 (M)
+            选框 (M)
           </button>
         </div>
-        <p className="text-xs text-white/60">
-          当前工具：{tool === 'paint' ? '画笔（左键/轻触绘制，Alt 吸管）' : '矩形选框（拖拽框选，F 填充，Esc 取消）'}
-        </p>
         {tool === 'selectRect' && (
-          <div className="space-y-2 rounded border border-sky-500/30 bg-sky-500/5 p-3">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className="px-3 py-2 rounded bg-sky-600 hover:bg-sky-500 disabled:bg-neutral-700 disabled:text-white/40"
-                onClick={() => fillSelection()}
-                disabled={!selection}
-              >
-                填充选区 (F)
-              </button>
-              <button
-                className="px-3 py-2 rounded bg-neutral-700 hover:bg-neutral-600 disabled:bg-neutral-800/80 disabled:text-white/30"
-                onClick={() => clearSelection()}
-                disabled={!selection}
-              >
-                取消选择 (Esc)
-              </button>
-            </div>
-            {selection ? (
-              <p className="text-xs text-white/60">
-                选区：({Math.min(selection.x0, selection.x1)}, {Math.min(selection.y0, selection.y1)}) → ({Math.max(selection.x0, selection.x1)}, {Math.max(selection.y0, selection.y1)})
-              </p>
-            ) : (
-              <p className="text-xs text-white/40">点击或拖拽画布以创建选区</p>
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              className={`px-3 py-2 rounded border text-sm transition-colors ${
+                selection
+                  ? 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white'
+                  : 'bg-neutral-900 border-white/5 text-white/40 cursor-not-allowed'
+              }`}
+              disabled={!selection}
+              onClick={() => selection && fillSelection()}
+              title="填充选区（快捷键：F）"
+            >
+              填充选区 (F)
+            </button>
+            <button
+              className={`px-3 py-2 rounded border text-sm transition-colors ${
+                selection
+                  ? 'bg-neutral-800 hover:bg-neutral-700 border-white/10 text-white'
+                  : 'bg-neutral-900 border-white/5 text-white/40 cursor-not-allowed'
+              }`}
+              disabled={!selection}
+              onClick={() => clearSelection()}
+              title="取消当前选择（快捷键：Esc）"
+            >
+              取消选择 (Esc)
+            </button>
           </div>
         )}
       </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={undo}>撤销 (Ctrl+Z)</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40" onClick={clear}>清空</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={save}>保存</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={load}>加载</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleExportPNG}>导出 PNG</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleExportJSON}>导出 JSON</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleImportJSON}>导入 JSON</button>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={undo}
+          title="撤销 (Ctrl+Z)"
+        >
+          撤销
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40 transition-colors"
+          onClick={clear}
+          title="清空所有像素"
+        >
+          清空
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={save}
+          title="保存至本地缓存"
+        >
+          保存
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={load}
+          title="加载本地缓存"
+        >
+          加载
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleExportPNG}
+          title="导出 PNG 图片"
+        >
+          导出 PNG
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleExportJSON}
+          title="导出 JSON 数据"
+        >
+          导出 JSON
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleImportJSON}
+          title="从 JSON 文件导入"
+        >
+          导入 JSON
+        </button>
       </div>
       <div className="flex items-center gap-2 pt-1">
         <input id="grid-toggle" type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
@@ -158,19 +206,27 @@ export default function Controls() {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 pt-2">
-          <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={async () => {
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          title="复制当前视角与选色的分享链接"
+          onClick={async () => {
             const hash = exportHash()
             const url = `${location.origin}${location.pathname}${hash}`
             location.hash = hash
             try {
               await navigator.clipboard.writeText(url)
-            } catch (err) {
-              console.warn('[controls] 复制链接失败', err)
+            } catch {
+              /* clipboard write may be blocked */
             }
-          }}>复制分享链接</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={() => {
-          applyHash(location.hash)
-        }}>应用当前链接</button>
+          }}
+        >复制分享链接</button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          title="从当前页面 URL 恢复视角、颜色与网格设置"
+          onClick={() => {
+            applyHash(location.hash)
+          }}
+        >应用当前链接</button>
       </div>
       <div className="space-y-2 pt-4 border-t border-white/10">
         <h3 className="text-sm font-medium text-white/80">联机</h3>
