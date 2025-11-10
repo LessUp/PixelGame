@@ -8,8 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:bench": "vitest run --performance"
+    "test": "node ./scripts/vitest-shim/bin/vitest.js run",
+    "test:bench": "node ./scripts/vitest-shim/bin/vitest.js --performance"
   },
   "dependencies": {
     "react": "^19.1.1",
