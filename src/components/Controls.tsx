@@ -119,14 +119,56 @@ export default function Controls() {
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={undo}>撤销 (Ctrl+Z)</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40" onClick={clear}>清空</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={save}>保存</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={load}>加载</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleExportPNG}>导出 PNG</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleExportJSON}>导出 JSON</button>
-        <button className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10" onClick={handleImportJSON}>导入 JSON</button>
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={undo}
+          title="撤销 (Ctrl+Z)"
+        >
+          撤销
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-red-500/40 transition-colors"
+          onClick={clear}
+          title="清空所有像素"
+        >
+          清空
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={save}
+          title="保存至本地缓存"
+        >
+          保存
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={load}
+          title="加载本地缓存"
+        >
+          加载
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleExportPNG}
+          title="导出 PNG 图片"
+        >
+          导出 PNG
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleExportJSON}
+          title="导出 JSON 数据"
+        >
+          导出 JSON
+        </button>
+        <button
+          className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded border border-white/10 transition-colors"
+          onClick={handleImportJSON}
+          title="从 JSON 文件导入"
+        >
+          导入 JSON
+        </button>
       </div>
       <div className="flex items-center gap-2 pt-1">
         <input id="grid-toggle" type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
