@@ -19,9 +19,8 @@ npm run dev
 | `npm run build` | 构建生产包 |
 | `npm run preview` | 预览构建产物 |
 | `npm run lint` | 运行 ESLint |
-| `npm run test` | 运行像素状态单元测试 |
-| `npm run test:watch` | 以监听模式运行测试 |
-| `npm run bench` | 运行像素存储性能基准 |
+| `npm run test` | 运行内置的 Vitest 风格测试套件（覆盖状态逻辑、导入导出、基准阈值） |
+| `npm run test:bench` | 仅执行性能基准测试（平均耗时阈值检查） |
 
 ## 核心技术栈
 
@@ -92,6 +91,8 @@ pixel/
 1. **文档与指南**：持续完善 README、贡献说明与开发约定。
 2. **自动化测试**：覆盖像素编码/解码、持久化、渲染辅助函数等核心逻辑。
 3. **性能压测**：在 CI 中加入离屏渲染与交互基准测试，监控性能回归。
+
+> 测试环境通过内置的 `vitest` 兼容运行器（见 `scripts/vitest-shim`）配合 `vitest.setup.ts` 中的补丁来模拟 `CanvasRenderingContext2D` 与 `localStorage`，从而在 CI 中覆盖导入导出与离屏渲染逻辑。
 
 ### 可访问性 & 国际化
 

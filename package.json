@@ -8,9 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "bench": "vitest bench"
+    "test": "node ./scripts/vitest-shim/bin/vitest.js run",
+    "test:bench": "node ./scripts/vitest-shim/bin/vitest.js --performance"
   },
   "dependencies": {
     "react": "^19.1.1",
@@ -33,6 +32,6 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
     "vite": "^7.1.7",
-    "vitest": "file:./tools/mini-vitest"
+    "vitest": "file:scripts/vitest-shim"
   }
 }

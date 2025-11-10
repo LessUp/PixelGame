@@ -77,7 +77,7 @@ export default function MiniMap() {
     ctx.restore()
   }, [width, height, viewport, canvasW, canvasH])
 
-  useEffect(() => { draw() }, [draw, version])
+  useEffect(() => { draw() }, [draw, version, palette])
 
   useEffect(() => {
     const canvas = canvasRef.current!
