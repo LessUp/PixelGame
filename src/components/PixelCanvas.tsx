@@ -10,13 +10,17 @@ function hexToRgb(hex: string): [number, number, number] {
 
 export default function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const offRef = useRef<HTMLCanvasElement | null>(null)
+  const offRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null)
   const [hover, setHover] = useState<{x:number,y:number}|null>(null)
+  const [cooldownReady, setCooldownReady] = useState(true)
+  const [altActive, setAltActive] = useState(false)
+  const [touchPipette, setTouchPipette] = useState(false)
 
   const width = usePixelStore(s => s.width)
   const height = usePixelStore(s => s.height)
   const version = usePixelStore(s => s.version)
   const palette = usePixelStore(s => s.palette)
+  const paletteRGB = usePixelStore(s => s.paletteRGB)
   const viewport = usePixelStore(s => s.viewport)
   const setCanvasSize = usePixelStore(s => s.setCanvasSize)
   const consumeDirty = usePixelStore(s => s.consumeDirty)
@@ -25,6 +29,11 @@ export default function PixelCanvas() {
   const gridAlpha = usePixelStore(s => s.gridAlpha)
   const gridMinScale = usePixelStore(s => s.gridMinScale)
   const selection = usePixelStore(s => s.selection)
+  const cursorStyle = usePixelStore(s => s.cursorStyle)
+  const cursorColor = usePixelStore(s => s.cursorColor)
+  const cursorCooldownColor = usePixelStore(s => s.cursorCooldownColor)
+  const cursorPipetteColor = usePixelStore(s => s.cursorPipetteColor)
+  const showCursorHints = usePixelStore(s => s.showCursorHints)
 
   // Offscreen update (partial redraw)
   useEffect(() => {

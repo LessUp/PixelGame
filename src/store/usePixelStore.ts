@@ -10,6 +10,8 @@ type Viewport = {
 
 type Tool = 'paint' | 'selectRect'
 
+type CursorStyle = 'outline' | 'crosshair'
+
 type HistoryItem = { idx: number; prev: number; next: number }
 
 export type PixelStore = {
@@ -17,6 +19,7 @@ export type PixelStore = {
   height: number
   pixels: Uint8Array
   palette: string[]
+  paletteRGB: Uint8ClampedArray
   selected: number
   version: number
   cooldownMs: number
@@ -75,6 +78,16 @@ export type PixelStore = {
   setGridColor: (c: string) => void
   setGridAlpha: (a: number) => void
   setGridMinScale: (s: number) => void
+  cursorStyle: CursorStyle
+  cursorColor: string
+  cursorCooldownColor: string
+  cursorPipetteColor: string
+  showCursorHints: boolean
+  setCursorStyle: (style: CursorStyle) => void
+  setCursorColor: (color: string) => void
+  setCursorCooldownColor: (color: string) => void
+  setCursorPipetteColor: (color: string) => void
+  setShowCursorHints: (v: boolean) => void
 }
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
@@ -106,6 +119,18 @@ function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '')
   const v = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
   return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
+}
+
+function paletteToRGB(palette: string[]): Uint8ClampedArray {
+  const buff = new Uint8ClampedArray(palette.length * 3)
+  for (let i = 0; i < palette.length; i++) {
+    const [r, g, b] = hexToRgb(palette[i])
+    const cursor = i * 3
+    buff[cursor] = r
+    buff[cursor + 1] = g
+    buff[cursor + 2] = b
+  }
+  return buff
 }
 
 const defaultPalette: string[] = [
@@ -146,6 +171,7 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
     height,
     pixels,
     palette: defaultPalette,
+    paletteRGB: paletteToRGB(defaultPalette),
     selected: 1,
     version: 0,
     cooldownMs: 5000,
@@ -348,6 +374,16 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
     setGridColor: (c: string) => set({ gridColor: c || '#ffffff' }),
     setGridAlpha: (a: number) => set({ gridAlpha: clamp(a, 0, 1) }),
     setGridMinScale: (s: number) => set({ gridMinScale: clamp(Math.round(s), 1, 64) }),
+    cursorStyle: 'outline',
+    cursorColor: '#ffffff',
+    cursorCooldownColor: '#f97316',
+    cursorPipetteColor: '#38bdf8',
+    showCursorHints: true,
+    setCursorStyle: (style) => set({ cursorStyle: style }),
+    setCursorColor: (color: string) => set({ cursorColor: color || '#ffffff' }),
+    setCursorCooldownColor: (color: string) => set({ cursorCooldownColor: color || '#f97316' }),
+    setCursorPipetteColor: (color: string) => set({ cursorPipetteColor: color || '#38bdf8' }),
+    setShowCursorHints: (v: boolean) => set({ showCursorHints: !!v }),
     setSelected: (i) => set({ selected: clamp(i, 0, get().palette.length - 1) }),
     setViewport: (v) => set({ viewport: { ...get().viewport, ...v } }),
     panBy: (dx, dy) => set({ viewport: { ...get().viewport, offsetX: get().viewport.offsetX + dx, offsetY: get().viewport.offsetY + dy } }),
@@ -427,6 +463,13 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
         gc: s.gridColor,
         ga: s.gridAlpha,
         gs: s.gridMinScale,
+        cursor: {
+          style: s.cursorStyle,
+          color: s.cursorColor,
+          cooldown: s.cursorCooldownColor,
+          pipette: s.cursorPipetteColor,
+          hints: s.showCursorHints,
+        },
       }
       const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
       return `#pb=${b64}`
@@ -447,6 +490,14 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
         if (typeof obj.gc === 'string') set({ gridColor: obj.gc })
         if (typeof obj.ga === 'number') set({ gridAlpha: clamp(obj.ga, 0, 1) })
         if (typeof obj.gs === 'number') set({ gridMinScale: clamp(Math.round(obj.gs), 1, 64) })
+        if (obj.cursor && typeof obj.cursor === 'object') {
+          const cur = obj.cursor
+          if (cur.style === 'outline' || cur.style === 'crosshair') set({ cursorStyle: cur.style })
+          if (typeof cur.color === 'string') set({ cursorColor: cur.color })
+          if (typeof cur.cooldown === 'string') set({ cursorCooldownColor: cur.cooldown })
+          if (typeof cur.pipette === 'string') set({ cursorPipetteColor: cur.pipette })
+          if (typeof cur.hints === 'boolean') set({ showCursorHints: cur.hints })
+        }
         return true
       } catch (err) {
         warn('解析分享链接失败', err)
@@ -480,12 +531,12 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
       const ctx = c.getContext('2d')!
       const img = ctx.createImageData(s.width, s.height)
       const data = img.data
-      const pal = s.palette.map(hexToRgb)
+      const pal = s.paletteRGB
       for (let i = 0, p = 0; i < s.pixels.length; i++, p += 4) {
-        const col = pal[s.pixels[i]] || [0,0,0]
-        data[p] = col[0]
-        data[p+1] = col[1]
-        data[p+2] = col[2]
+        const base = s.pixels[i] * 3
+        data[p] = pal[base] ?? 0
+        data[p+1] = pal[base + 1] ?? 0
+        data[p+2] = pal[base + 2] ?? 0
         data[p+3] = 255
       }
       ctx.putImageData(img, 0, 0)
@@ -504,7 +555,7 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
         if (u8.length !== get().pixels.length) return false
         get().pixels.set(u8)
         if (Array.isArray(obj.palette)) {
-          set({ palette: obj.palette })
+          set({ palette: obj.palette, paletteRGB: paletteToRGB(obj.palette) })
         }
         set({ version: get().version + 1, fullRedraw: true, dirty: [] })
         get().save()
