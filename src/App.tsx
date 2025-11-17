@@ -4,6 +4,7 @@ import Palette from './components/Palette'
 import HUD from './components/HUD'
 import Controls from './components/Controls'
 import MiniMap from './components/MiniMap'
+import ActionDock from './components/ActionDock'
 import usePixelStore from './store/usePixelStore'
 
 function App() {
@@ -142,6 +143,7 @@ function App() {
             </div>
           </aside>
         </div>
+        <ActionDock />
       </div>
     </div>
   )
