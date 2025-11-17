@@ -12,9 +12,6 @@ export default function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const offRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null)
   const [hover, setHover] = useState<{x:number,y:number}|null>(null)
-  const [cooldownReady, setCooldownReady] = useState(true)
-  const [altActive, setAltActive] = useState(false)
-  const [touchPipette, setTouchPipette] = useState(false)
 
   const width = usePixelStore(s => s.width)
   const height = usePixelStore(s => s.height)
@@ -29,11 +26,6 @@ export default function PixelCanvas() {
   const gridAlpha = usePixelStore(s => s.gridAlpha)
   const gridMinScale = usePixelStore(s => s.gridMinScale)
   const selection = usePixelStore(s => s.selection)
-  const cursorStyle = usePixelStore(s => s.cursorStyle)
-  const cursorColor = usePixelStore(s => s.cursorColor)
-  const cursorCooldownColor = usePixelStore(s => s.cursorCooldownColor)
-  const cursorPipetteColor = usePixelStore(s => s.cursorPipetteColor)
-  const showCursorHints = usePixelStore(s => s.showCursorHints)
 
   // Offscreen update (partial redraw)
   useEffect(() => {
@@ -47,15 +39,14 @@ export default function PixelCanvas() {
     const pixels = usePixelStore.getState().pixels
 
     if (full || version === 0) {
-      // full redraw via ImageData for performance
       const img = octx.createImageData(width, height)
       const data = img.data
-      const pal = palette.map(hexToRgb)
+      const pal = paletteRGB
       for (let i = 0, p = 0; i < pixels.length; i++, p += 4) {
-        const c = pal[pixels[i]] || [0, 0, 0]
-        data[p] = c[0]
-        data[p + 1] = c[1]
-        data[p + 2] = c[2]
+        const base = pixels[i] * 3
+        data[p] = pal[base] ?? 0
+        data[p + 1] = pal[base + 1] ?? 0
+        data[p + 2] = pal[base + 2] ?? 0
         data[p + 3] = 255
       }
       octx.putImageData(img, 0, 0)
@@ -69,7 +60,7 @@ export default function PixelCanvas() {
         octx.fillRect(x, y, 1, 1)
       }
     }
-  }, [width, height, version, palette, consumeDirty])
+  }, [width, height, version, palette, paletteRGB, consumeDirty])
 
   useEffect(() => {
     let raf = 0

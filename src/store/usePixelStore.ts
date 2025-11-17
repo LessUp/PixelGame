@@ -67,6 +67,9 @@ export type PixelStore = {
   connectWS: (url?: string) => void
   disconnectWS: () => void
   applyRemotePixels: (payload: ServerMessage | PixelUpdate[] | null | undefined) => void
+  authoritativeMode: boolean
+  setAuthoritativeMode: (v: boolean) => void
+  pendingOps: { idx: number; prev: number }[]
   showGrid: boolean
   setShowGrid: (v: boolean) => void
   dirty: number[]
@@ -240,6 +243,8 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
     wsStatus: 'disconnected',
     wsError: null,
     wsLastHeartbeat: null,
+    authoritativeMode: false,
+    pendingOps: [],
     setWsUrl: (url: string) => set({ wsUrl: url.trim() }),
     connectWS: (url) => {
       const target = (url || get().wsUrl).trim()
@@ -302,6 +307,14 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
           }
         }
         if (changed) set({ version: get().version + 1, dirty: d })
+        if (get().authoritativeMode) {
+          const width = get().width
+          const pend = get().pendingOps
+          if (pend.length) {
+            const keep = pend.filter(op => !list.some(it => (it.y * width + it.x) === op.idx && get().pixels[op.idx] === it.c))
+            if (keep.length !== pend.length) set({ pendingOps: keep })
+          }
+        }
       }
 
       if (Array.isArray(payload)) {
@@ -338,6 +351,18 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
             }
           }
           if (changed) set({ version: get().version + 1, dirty: d })
+          if (get().authoritativeMode) {
+            const pend = get().pendingOps
+            if (pend.length) {
+              const keep = pend.filter(op => {
+                const x = op.idx % get().width
+                const y = (op.idx / get().width) | 0
+                const inRect = x >= x0 && x <= x1 && y >= y0 && y <= y1
+                return !(inRect && get().pixels[op.idx] === c)
+              })
+              if (keep.length !== pend.length) set({ pendingOps: keep })
+            }
+          }
           break
         }
         case 'pong':
@@ -350,6 +375,18 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
           const message = typeof msg.message === 'string' ? msg.message : '服务器返回错误'
           console.error('[ws] 服务器错误', msg)
           set({ wsError: message, wsStatus: 'error' })
+          if (get().authoritativeMode) {
+            const pend = get().pendingOps
+            if (pend.length) {
+              const d = get().dirty
+              for (const op of pend) {
+                get().pixels[op.idx] = op.prev
+                if (d.length < 10000) d.push(op.idx)
+              }
+              set({ version: get().version + 1, dirty: d, pendingOps: [] })
+              get().save()
+            }
+          }
           break
         }
         case 'denied':
@@ -362,6 +399,18 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
               : '权限不足'
           console.warn('[ws] 权限不足', msg)
           set({ wsError: message, wsStatus: 'error' })
+          if (get().authoritativeMode) {
+            const pend = get().pendingOps
+            if (pend.length) {
+              const d = get().dirty
+              for (const op of pend) {
+                get().pixels[op.idx] = op.prev
+                if (d.length < 10000) d.push(op.idx)
+              }
+              set({ version: get().version + 1, dirty: d, pendingOps: [] })
+              get().save()
+            }
+          }
           break
         }
         default:
@@ -385,6 +434,7 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
     setCursorPipetteColor: (color: string) => set({ cursorPipetteColor: color || '#38bdf8' }),
     setShowCursorHints: (v: boolean) => set({ showCursorHints: !!v }),
     setSelected: (i) => set({ selected: clamp(i, 0, get().palette.length - 1) }),
+    setAuthoritativeMode: (v: boolean) => set({ authoritativeMode: !!v }),
     setViewport: (v) => set({ viewport: { ...get().viewport, ...v } }),
     panBy: (dx, dy) => set({ viewport: { ...get().viewport, offsetX: get().viewport.offsetX + dx, offsetY: get().viewport.offsetY + dy } }),
     setScale: (scale, anchor) => {
@@ -423,6 +473,11 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
       get().save()
       // broadcast if ws connected
       socket.sendPlacePixel(x, y, col)
+      if (get().wsEnabled && get().authoritativeMode) {
+        const pend = get().pendingOps
+        if (pend.length < 10000) pend.push({ idx, prev: cur })
+        set({ pendingOps: pend })
+      }
       return true
     },
     pickColor: (x, y) => {

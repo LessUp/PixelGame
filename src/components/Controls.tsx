@@ -34,6 +34,8 @@ export default function Controls() {
   const wsStatus = usePixelStore(s => s.wsStatus)
   const wsError = usePixelStore(s => s.wsError)
   const wsLastHeartbeat = usePixelStore(s => s.wsLastHeartbeat)
+  const authoritativeMode = usePixelStore(s => s.authoritativeMode)
+  const setAuthoritativeMode = usePixelStore(s => s.setAuthoritativeMode)
 
   const fileRef = useRef<HTMLInputElement | null>(null)
 
@@ -254,6 +256,16 @@ export default function Controls() {
             >
               断开连接
             </button>
+            <label className="ml-2 flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-100">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border border-white/20 accent-sky-500"
+                checked={authoritativeMode}
+                onChange={e => setAuthoritativeMode(e.target.checked)}
+                title="启用服务端权威：连接异常时回滚未确认本地操作"
+              />
+              <span>服务端权威</span>
+            </label>
             <span className={`text-xs font-medium ${wsEnabled ? 'text-emerald-300' : wsStatus === 'error' ? 'text-red-300' : 'text-slate-300/80'}`}>
               状态：{wsEnabled ? '已连接' : wsStatus === 'connecting' ? '连接中' : wsStatus === 'error' ? '连接异常' : '未连接'}
             </span>
@@ -266,6 +278,7 @@ export default function Controls() {
             {wsError && (
               <div className="mt-1 text-red-300">{wsError}</div>
             )}
+            <div>权威模式：{authoritativeMode ? '启用' : '关闭'}</div>
           </div>
         </div>
       </section>

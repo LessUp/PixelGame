@@ -21,7 +21,7 @@ export type ConnectCallbacks = {
   onError?: (message: string, ev?: Event | CloseEvent | ErrorEvent) => void
   onReconnect?: (attempt: number, delay: number) => void
   onMessage?: (msg: ServerMessage) => void
-  onHeartbeat?: (timestamp: number) => void
+  onHeartbeat?: (timestamp: number, rtt?: number) => void
   onLog?: (level: 'info' | 'warn' | 'error', message: string, extra?: unknown) => void
 }
 
@@ -34,6 +34,7 @@ class WSClient {
   private heartbeatTimer: number | null = null
   private heartbeatTimeoutTimer: number | null = null
   private reconnectAttempt = 0
+  private lastPingSentAt: number | null = null
 
   connect(url: string, callbacks: ConnectCallbacks = {}): boolean {
     if (this.ws) {
@@ -198,13 +199,16 @@ class WSClient {
 
   private sendHeartbeat(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+    this.lastPingSentAt = Date.now()
     this.send({ t: 'ping' })
     this.resetHeartbeatTimeout()
   }
 
   private markHeartbeat(): void {
     this.resetHeartbeatTimeout()
-    this.callbacks?.onHeartbeat?.(Date.now())
+    const now = Date.now()
+    const rtt = this.lastPingSentAt ? now - this.lastPingSentAt : undefined
+    this.callbacks?.onHeartbeat?.(now, rtt)
   }
 
   private resetHeartbeatTimeout(): void {
