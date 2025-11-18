@@ -2,25 +2,8 @@ import type { StateCreator } from 'zustand'
 import type { PixelStore } from './pixel-types'
 import { clamp } from '../utils/math'
 import { paletteToRGB } from '../utils/color'
-
-const STORAGE_KEY = 'pixel-board-v1'
-
-function u8ToB64(u8: Uint8Array): string {
-  let out = ''
-  const CHUNK = 0x8000
-  for (let i = 0; i < u8.length; i += CHUNK) {
-    const sub = u8.subarray(i, i + CHUNK)
-    out += String.fromCharCode.apply(null, Array.from(sub))
-  }
-  return btoa(out)
-}
-
-function b64ToU8(b64: string): Uint8Array {
-  const bin = atob(b64)
-  const u8 = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
-  return u8
-}
+import { encodeViewStateToHash, decodeHashToViewState } from '../utils/hash'
+import { PIXEL_STORAGE_KEY, u8ToB64, b64ToU8, savePixelStorage, loadPixelStorage } from '../utils/persistence'
 
 export const createPixelSharingSlice: StateCreator<PixelStore, [], []> = (set, get) => ({
   save: () => {
@@ -28,7 +11,7 @@ export const createPixelSharingSlice: StateCreator<PixelStore, [], []> = (set, g
       const s = get()
       const b64 = u8ToB64(s.pixels)
       const payload = { w: s.width, h: s.height, b64, s: s.selected }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
+      savePixelStorage(PIXEL_STORAGE_KEY, payload)
     } catch (err) {
       if (typeof console !== 'undefined') {
         console.warn('[pixel-store] 保存像素数据失败', err)
@@ -53,16 +36,12 @@ export const createPixelSharingSlice: StateCreator<PixelStore, [], []> = (set, g
         hints: s.showCursorHints,
       },
     }
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
-    return `#pb=${b64}`
+    return encodeViewStateToHash(obj)
   },
   applyHash: (hash: string) => {
-    if (!hash || !hash.startsWith('#pb=')) return false
     try {
-      const b64 = hash.slice(4)
-      const json = decodeURIComponent(escape(atob(b64)))
-      const obj = JSON.parse(json)
-      if (!obj || obj.v !== 1) return false
+      const obj = decodeHashToViewState(hash)
+      if (!obj) return false
       const vp = obj.vp
       if (vp && typeof vp.scale === 'number' && typeof vp.offsetX === 'number' && typeof vp.offsetY === 'number') {
         set({ viewport: { scale: clamp(vp.scale, 1, 64), offsetX: vp.offsetX, offsetY: vp.offsetY } })
@@ -90,10 +69,9 @@ export const createPixelSharingSlice: StateCreator<PixelStore, [], []> = (set, g
   },
   load: () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (!raw) return
-      const obj = JSON.parse(raw)
-      if (obj && obj.w === get().width && obj.h === get().height && typeof obj.b64 === 'string') {
+      const obj = loadPixelStorage(PIXEL_STORAGE_KEY)
+      if (!obj) return
+      if (obj.w === get().width && obj.h === get().height && typeof obj.b64 === 'string') {
         const u8 = b64ToU8(obj.b64)
         if (u8.length === get().pixels.length) get().pixels.set(u8)
         set({
