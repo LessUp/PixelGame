@@ -1,20 +1,17 @@
 import { create, type StateCreator } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import wsClient, { type ServerMessage, type PixelUpdate } from '../services/wsClient'
+import { clamp } from '../utils/math'
+import { hexToRgb, paletteToRGB } from '../utils/color'
+import type {
+  PixelStore as PixelStoreShape,
+  Viewport,
+  Tool,
+  CursorStyle,
+  HistoryItem,
+} from './pixel-types'
 
-type Viewport = {
-  scale: number
-  offsetX: number
-  offsetY: number
-}
-
-type Tool = 'paint' | 'selectRect'
-
-type CursorStyle = 'outline' | 'crosshair'
-
-type HistoryItem = { idx: number; prev: number; next: number }
-
-export type PixelStore = {
+export type PixelStore = PixelStoreShape & {
   width: number
   height: number
   pixels: Uint8Array
@@ -92,9 +89,6 @@ export type PixelStore = {
   setCursorPipetteColor: (color: string) => void
   setShowCursorHints: (v: boolean) => void
 }
-
-const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
-
 const warn = (message: string, err: unknown) => {
   if (typeof console !== 'undefined') {
     console.warn(`[pixel-store] ${message}`, err)
@@ -117,25 +111,6 @@ function b64ToU8(b64: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
   return u8
 }
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '')
-  const v = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
-  return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
-}
-
-function paletteToRGB(palette: string[]): Uint8ClampedArray {
-  const buff = new Uint8ClampedArray(palette.length * 3)
-  for (let i = 0; i < palette.length; i++) {
-    const [r, g, b] = hexToRgb(palette[i])
-    const cursor = i * 3
-    buff[cursor] = r
-    buff[cursor + 1] = g
-    buff[cursor + 2] = b
-  }
-  return buff
-}
-
 const defaultPalette: string[] = [
   '#000000','#FFFFFF','#FF0000','#00FF00','#0000FF','#FFFF00','#FF00FF','#00FFFF',
   '#808080','#800000','#808000','#008000','#800080','#008080','#000080','#C0C0C0',

@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import usePixelStore from '../store/usePixelStore'
- 
-const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '')
-  const v = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
-  return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
-}
+import { clamp } from '../utils/math'
+import { hexToRgb } from '../utils/color'
 
 export default function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
