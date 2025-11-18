@@ -26,53 +26,128 @@ function App() {
     applyHash(window.location.hash)
     const onHash = () => applyHash(window.location.hash)
 
+    const KEY_BINDINGS: {
+      match: (e: KeyboardEvent) => boolean
+      preventDefault?: boolean
+      action: (e: KeyboardEvent) => void
+    }[] = [
+      {
+        match: (e) => {
+          const key = e.key
+          const ctrl = e.ctrlKey || e.metaKey
+          return ctrl && !e.shiftKey && (key === 'z' || key === 'Z')
+        },
+        preventDefault: true,
+        action: () => {
+          undo()
+        },
+      },
+      {
+        match: (e) => {
+          const key = e.key
+          return key === '+' || key === '='
+        },
+        preventDefault: true,
+        action: () => {
+          const ns = viewport.scale * 1.1
+          setScale(ns)
+        },
+      },
+      {
+        match: (e) => e.key === '-',
+        preventDefault: true,
+        action: () => {
+          const ns = viewport.scale / 1.1
+          setScale(ns)
+        },
+      },
+      {
+        match: (e) => e.key === 'g' || e.key === 'G',
+        preventDefault: true,
+        action: () => {
+          setShowGrid(!showGrid)
+        },
+      },
+      {
+        match: (e) => e.key === 'b' || e.key === 'B',
+        preventDefault: true,
+        action: () => {
+          setTool('paint')
+        },
+      },
+      {
+        match: (e) => e.key === 'm' || e.key === 'M',
+        preventDefault: true,
+        action: () => {
+          setTool('selectRect')
+        },
+      },
+      {
+        match: (e) => /^[0-9]$/.test(e.key),
+        action: (e) => {
+          const key = e.key
+          const idx = key === '0' ? 9 : (parseInt(key, 10) - 1)
+          setSelected(idx)
+        },
+      },
+      {
+        match: (e) => e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A',
+        preventDefault: true,
+        action: () => {
+          const step = 50
+          panBy(step, 0)
+        },
+      },
+      {
+        match: (e) => e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D',
+        preventDefault: true,
+        action: () => {
+          const step = 50
+          panBy(-step, 0)
+        },
+      },
+      {
+        match: (e) => e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W',
+        preventDefault: true,
+        action: () => {
+          const step = 50
+          panBy(0, step)
+        },
+      },
+      {
+        match: (e) => e.key === 'ArrowDown' || e.key === 's' || e.key === 'S',
+        preventDefault: true,
+        action: () => {
+          const step = 50
+          panBy(0, -step)
+        },
+      },
+      {
+        match: (e) => e.key === 'f' || e.key === 'F',
+        preventDefault: true,
+        action: () => {
+          fillSelection()
+        },
+      },
+      {
+        match: (e) => e.key === 'Escape',
+        preventDefault: true,
+        action: () => {
+          clearSelection()
+        },
+      },
+    ]
+
     const onKey = (e: KeyboardEvent) => {
-      const key = e.key
-      const ctrl = e.ctrlKey || e.metaKey
-      if (ctrl && !e.shiftKey && (key === 'z' || key === 'Z')) {
-        e.preventDefault()
-        undo()
-        return
+      for (const binding of KEY_BINDINGS) {
+        if (binding.match(e)) {
+          if (binding.preventDefault) {
+            e.preventDefault()
+          }
+          binding.action(e)
+          return
+        }
       }
-      if (key === '+' || key === '=' ) {
-        e.preventDefault()
-        const ns = viewport.scale * 1.1
-        setScale(ns)
-        return
-      }
-      if (key === '-') {
-        e.preventDefault()
-        const ns = viewport.scale / 1.1
-        setScale(ns)
-        return
-      }
-      if (key === 'g' || key === 'G') {
-        e.preventDefault()
-        setShowGrid(!showGrid)
-        return
-      }
-      if (key === 'b' || key === 'B') {
-        e.preventDefault()
-        setTool('paint')
-        return
-      }
-      if (key === 'm' || key === 'M') {
-        e.preventDefault()
-        setTool('selectRect')
-        return
-      }
-      if (/^[0-9]$/.test(key)) {
-        const idx = key === '0' ? 9 : (parseInt(key, 10) - 1)
-        setSelected(idx)
-        return
-      }
-      const step = 50
-      if (key === 'ArrowLeft' || key === 'a' || key === 'A') { e.preventDefault(); panBy(step, 0); return }
-      if (key === 'ArrowRight' || key === 'd' || key === 'D') { e.preventDefault(); panBy(-step, 0); return }
-      if (key === 'ArrowUp' || key === 'w' || key === 'W') { e.preventDefault(); panBy(0, step); return }
-      if (key === 'ArrowDown' || key === 's' || key === 'S') { e.preventDefault(); panBy(0, -step); return }
-      if (key === 'f' || key === 'F') { e.preventDefault(); fillSelection(); return }
-      if (key === 'Escape') { e.preventDefault(); clearSelection(); return }
     }
 
     window.addEventListener('keydown', onKey)

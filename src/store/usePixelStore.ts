@@ -1,13 +1,13 @@
 import { create, type StateCreator } from 'zustand'
 import { createStore } from 'zustand/vanilla'
-import wsClient, { type ServerMessage, type PixelUpdate } from '../services/wsClient'
-import { clamp } from '../utils/math'
-import { paletteToRGB } from '../utils/color'
+import wsClient from '../services/wsClient'
 import { createPixelUiPrefsSlice } from './pixel-ui-prefs.slice'
 import { createPixelViewportSlice } from './pixel-viewport.slice'
 import { createPixelCoreSlice } from './pixel-core.slice'
 import { createPixelHistorySlice } from './pixel-history.slice'
 import { createPixelToolsSlice } from './pixel-tools.slice'
+import { createPixelNetworkSlice } from './pixel-network.slice'
+import { createPixelSharingSlice } from './pixel-sharing.slice'
 import type {
   PixelStore as PixelStoreShape,
   Viewport,
@@ -94,28 +94,6 @@ export type PixelStore = PixelStoreShape & {
   setCursorPipetteColor: (color: string) => void
   setShowCursorHints: (v: boolean) => void
 }
-const warn = (message: string, err: unknown) => {
-  if (typeof console !== 'undefined') {
-    console.warn(`[pixel-store] ${message}`, err)
-  }
-}
-
-function u8ToB64(u8: Uint8Array): string {
-  let out = ''
-  const CHUNK = 0x8000
-  for (let i = 0; i < u8.length; i += CHUNK) {
-    const sub = u8.subarray(i, i + CHUNK)
-    out += String.fromCharCode.apply(null, Array.from(sub))
-  }
-  return btoa(out)
-}
-
-function b64ToU8(b64: string): Uint8Array {
-  const bin = atob(b64)
-  const u8 = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
-  return u8
-}
 export const defaultPalette: string[] = [
   '#000000','#FFFFFF','#FF0000','#00FF00','#0000FF','#FFFF00','#FF00FF','#00FFFF',
   '#808080','#800000','#808000','#008000','#800080','#008080','#000080','#C0C0C0',
@@ -123,343 +101,21 @@ export const defaultPalette: string[] = [
   '#5F9EA0','#4682B4','#1E90FF','#6495ED','#7B68EE','#EE82EE','#FFC0CB','#FFD700'
 ]
 
-const STORAGE_KEY = 'pixel-board-v1'
-
 type PixelStoreDeps = {
   wsClient?: typeof wsClient
 }
-
-type PlaceMessage = Extract<ServerMessage, { t: 'place' }>
-type FillRectMessage = Extract<ServerMessage, { t: 'fillRect' }>
 
 const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore, [], []> => (set, get) => {
   const width = 1024
   const height = 1024
   const pixels = new Uint8Array(width * height)
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const obj = JSON.parse(raw)
-      if (obj && obj.w === width && obj.h === height && typeof obj.b64 === 'string') {
-        const u8 = b64ToU8(obj.b64)
-        if (u8.length === pixels.length) pixels.set(u8)
-      }
-    }
-  } catch (err) {
-    warn('读取本地存档失败', err)
-  }
 
   return {
     ...createPixelCoreSlice(width, height, pixels, defaultPalette)(set, get),
     ...createPixelHistorySlice(set, get),
     ...createPixelToolsSlice(socket)(set, get),
-    cooldownMs: 5000,
-    lastPlacedAt: 0,
-    wsEnabled: false,
-    wsUrl: '',
-    wsStatus: 'disconnected',
-    wsError: null,
-    wsLastHeartbeat: null,
-    authoritativeMode: false,
-    pendingOps: [],
-    setWsUrl: (url: string) => set({ wsUrl: url.trim() }),
-    connectWS: (url) => {
-      const target = (url || get().wsUrl).trim()
-      if (!target) {
-        set({ wsError: '请先输入服务器地址', wsStatus: 'error' })
-        return
-      }
-      set({ wsUrl: target, wsStatus: 'connecting', wsError: null })
-      try {
-        const connected = socket.connect(target, {
-          onOpen: () => set({ wsEnabled: true, wsStatus: 'connected', wsError: null, wsLastHeartbeat: Date.now() }),
-          onClose: () => set((state) => ({ wsEnabled: false, wsStatus: state.wsStatus === 'connecting' ? 'connecting' : 'disconnected' })),
-          onError: (message) => {
-            set({ wsEnabled: false, wsStatus: 'error', wsError: message || 'WebSocket 连接异常' })
-          },
-          onReconnect: () => set({ wsStatus: 'connecting' }),
-          onHeartbeat: (timestamp) => set({ wsLastHeartbeat: timestamp, wsStatus: 'connected' }),
-          onMessage: (msg) => {
-            try {
-              get().applyRemotePixels(msg)
-            } catch (err) {
-              console.warn('[ws] 处理消息失败', err)
-            }
-          },
-        })
-        if (!connected) {
-          set({ wsEnabled: false, wsStatus: 'error', wsError: '当前环境不支持 WebSocket' })
-        }
-      } catch (err) {
-        console.error('[ws] 连接失败', err)
-        set({ wsEnabled: false, wsStatus: 'error', wsError: '连接 WebSocket 时发生异常' })
-      }
-    },
-    disconnectWS: () => {
-      try {
-        socket.disconnect()
-      } catch (err) {
-        console.warn('[ws] 主动断开时发生异常', err)
-      }
-      set({ wsEnabled: false, wsStatus: 'disconnected' })
-    },
-    applyRemotePixels: (payload) => {
-      if (!payload) return
-
-      const applyBatch = (list: PixelUpdate[]) => {
-        if (!Array.isArray(list) || !list.length) return
-        const d = get().dirty
-        let changed = false
-        for (const it of list) {
-          const x = it.x | 0
-          const y = it.y | 0
-          const c = it.c | 0
-          if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
-          const idx = y * get().width + x
-          const prev = get().pixels[idx]
-          if (prev !== c) {
-            get().pixels[idx] = c
-            if (d.length < 10000) d.push(idx)
-            changed = true
-          }
-        }
-        if (changed) set({ version: get().version + 1, dirty: d })
-        if (get().authoritativeMode) {
-          const width = get().width
-          const pend = get().pendingOps
-          if (pend.length) {
-            const keep = pend.filter(op => !list.some(it => (it.y * width + it.x) === op.idx && get().pixels[op.idx] === it.c))
-            if (keep.length !== pend.length) set({ pendingOps: keep })
-          }
-        }
-      }
-
-      if (Array.isArray(payload)) {
-        applyBatch(payload)
-        return
-      }
-
-      const msg = payload as ServerMessage
-      switch (msg.t) {
-        case 'place': {
-          const { x, y, c } = msg as PlaceMessage
-          applyBatch([{ x, y, c }])
-          break
-        }
-        case 'multi':
-        case 'batch':
-        case 'pixels':
-          applyBatch(Array.isArray(msg.list) ? msg.list : [])
-          break
-        case 'fillRect': {
-          const { x0, y0, x1, y1, c } = msg as FillRectMessage
-          const d = get().dirty
-          let changed = false
-          for (let y = y0; y <= y1; y++) {
-            for (let x = x0; x <= x1; x++) {
-              if (x < 0 || y < 0 || x >= get().width || y >= get().height) continue
-              const idx = y * get().width + x
-              const prev = get().pixels[idx]
-              if (prev !== c) {
-                get().pixels[idx] = c
-                if (d.length < 10000) d.push(idx)
-                changed = true
-              }
-            }
-          }
-          if (changed) set({ version: get().version + 1, dirty: d })
-          if (get().authoritativeMode) {
-            const pend = get().pendingOps
-            if (pend.length) {
-              const keep = pend.filter(op => {
-                const x = op.idx % get().width
-                const y = (op.idx / get().width) | 0
-                const inRect = x >= x0 && x <= x1 && y >= y0 && y <= y1
-                return !(inRect && get().pixels[op.idx] === c)
-              })
-              if (keep.length !== pend.length) set({ pendingOps: keep })
-            }
-          }
-          break
-        }
-        case 'pong':
-        case 'heartbeat':
-        case 'hb':
-        case 'ack':
-          set({ wsLastHeartbeat: Date.now(), wsStatus: 'connected' })
-          break
-        case 'error': {
-          const message = typeof msg.message === 'string' ? msg.message : '服务器返回错误'
-          console.error('[ws] 服务器错误', msg)
-          set({ wsError: message, wsStatus: 'error' })
-          if (get().authoritativeMode) {
-            const pend = get().pendingOps
-            if (pend.length) {
-              const d = get().dirty
-              for (const op of pend) {
-                get().pixels[op.idx] = op.prev
-                if (d.length < 10000) d.push(op.idx)
-              }
-              set({ version: get().version + 1, dirty: d, pendingOps: [] })
-              get().save()
-            }
-          }
-          break
-        }
-        case 'denied':
-        case 'forbidden': {
-          const reason = 'reason' in msg ? msg.reason : undefined
-          const message = typeof msg.message === 'string'
-            ? msg.message
-            : typeof reason === 'string'
-              ? reason
-              : '权限不足'
-          console.warn('[ws] 权限不足', msg)
-          set({ wsError: message, wsStatus: 'error' })
-          if (get().authoritativeMode) {
-            const pend = get().pendingOps
-            if (pend.length) {
-              const d = get().dirty
-              for (const op of pend) {
-                get().pixels[op.idx] = op.prev
-                if (d.length < 10000) d.push(op.idx)
-              }
-              set({ version: get().version + 1, dirty: d, pendingOps: [] })
-              get().save()
-            }
-          }
-          break
-        }
-        default:
-          console.debug('[ws] 未识别的消息类型', msg)
-      }
-    },
-    pickColor: (x, y) => {
-      const v = get().getPixel(x, y)
-      set({ selected: v })
-    },
-    save: () => {
-      try {
-        const s = get()
-        const b64 = u8ToB64(s.pixels)
-        const payload = { w: s.width, h: s.height, b64, s: s.selected }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-      } catch (err) {
-        warn('保存像素数据失败', err)
-      }
-    },
-    exportHash: () => {
-      const s = get()
-      const obj = {
-        v: 1,
-        vp: s.viewport,
-        s: s.selected,
-        g: s.showGrid,
-        gc: s.gridColor,
-        ga: s.gridAlpha,
-        gs: s.gridMinScale,
-        cursor: {
-          style: s.cursorStyle,
-          color: s.cursorColor,
-          cooldown: s.cursorCooldownColor,
-          pipette: s.cursorPipetteColor,
-          hints: s.showCursorHints,
-        },
-      }
-      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
-      return `#pb=${b64}`
-    },
-    applyHash: (hash: string) => {
-      if (!hash || !hash.startsWith('#pb=')) return false
-      try {
-        const b64 = hash.slice(4)
-        const json = decodeURIComponent(escape(atob(b64)))
-        const obj = JSON.parse(json)
-        if (!obj || obj.v !== 1) return false
-        const vp = obj.vp
-        if (vp && typeof vp.scale === 'number' && typeof vp.offsetX === 'number' && typeof vp.offsetY === 'number') {
-          set({ viewport: { scale: clamp(vp.scale, 1, 64), offsetX: vp.offsetX, offsetY: vp.offsetY } })
-        }
-        if (typeof obj.s === 'number') set({ selected: clamp(obj.s, 0, get().palette.length - 1) })
-        if (typeof obj.g === 'boolean') set({ showGrid: obj.g })
-        if (typeof obj.gc === 'string') set({ gridColor: obj.gc })
-        if (typeof obj.ga === 'number') set({ gridAlpha: clamp(obj.ga, 0, 1) })
-        if (typeof obj.gs === 'number') set({ gridMinScale: clamp(Math.round(obj.gs), 1, 64) })
-        if (obj.cursor && typeof obj.cursor === 'object') {
-          const cur = obj.cursor
-          if (cur.style === 'outline' || cur.style === 'crosshair') set({ cursorStyle: cur.style })
-          if (typeof cur.color === 'string') set({ cursorColor: cur.color })
-          if (typeof cur.cooldown === 'string') set({ cursorCooldownColor: cur.cooldown })
-          if (typeof cur.pipette === 'string') set({ cursorPipetteColor: cur.pipette })
-          if (typeof cur.hints === 'boolean') set({ showCursorHints: cur.hints })
-        }
-        return true
-      } catch (err) {
-        warn('解析分享链接失败', err)
-        return false
-      }
-    },
-    load: () => {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        if (!raw) return
-        const obj = JSON.parse(raw)
-        if (obj && obj.w === get().width && obj.h === get().height && typeof obj.b64 === 'string') {
-          const u8 = b64ToU8(obj.b64)
-          if (u8.length === get().pixels.length) get().pixels.set(u8)
-          set({ version: get().version + 1, selected: typeof obj.s === 'number' ? obj.s : get().selected, fullRedraw: true, dirty: [] })
-        }
-      } catch (err) {
-        warn('加载像素数据失败', err)
-      }
-    },
-    clear: () => {
-      get().pixels.fill(0)
-      set({ version: get().version + 1, history: [], fullRedraw: true, dirty: [] })
-      get().save()
-    },
-    exportPNG: () => {
-      const s = get()
-      const c = document.createElement('canvas')
-      c.width = s.width
-      c.height = s.height
-      const ctx = c.getContext('2d')!
-      const img = ctx.createImageData(s.width, s.height)
-      const data = img.data
-      const pal = s.paletteRGB
-      for (let i = 0, p = 0; i < s.pixels.length; i++, p += 4) {
-        const base = s.pixels[i] * 3
-        data[p] = pal[base] ?? 0
-        data[p+1] = pal[base + 1] ?? 0
-        data[p+2] = pal[base + 2] ?? 0
-        data[p+3] = 255
-      }
-      ctx.putImageData(img, 0, 0)
-      return c.toDataURL('image/png')
-    },
-    exportJSON: () => {
-      const s = get()
-      const b64 = u8ToB64(s.pixels)
-      return JSON.stringify({ w: s.width, h: s.height, b64, palette: s.palette }, null, 2)
-    },
-    importJSON: (text: string) => {
-      try {
-        const obj = JSON.parse(text)
-        if (!obj || obj.w !== get().width || obj.h !== get().height || typeof obj.b64 !== 'string') return false
-        const u8 = b64ToU8(obj.b64)
-        if (u8.length !== get().pixels.length) return false
-        get().pixels.set(u8)
-        if (Array.isArray(obj.palette)) {
-          set({ palette: obj.palette, paletteRGB: paletteToRGB(obj.palette) })
-        }
-        set({ version: get().version + 1, fullRedraw: true, dirty: [] })
-        get().save()
-        return true
-      } catch (err) {
-        warn('解析分享链接失败', err)
-        return false
-      }
-    },
+    ...createPixelNetworkSlice(socket)(set, get),
+    ...createPixelSharingSlice(set, get),
     ...createPixelViewportSlice(set, get),
     ...createPixelUiPrefsSlice(set, get),
   }
