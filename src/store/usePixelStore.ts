@@ -2,7 +2,10 @@ import { create, type StateCreator } from 'zustand'
 import { createStore } from 'zustand/vanilla'
 import wsClient, { type ServerMessage, type PixelUpdate } from '../services/wsClient'
 import { clamp } from '../utils/math'
-import { hexToRgb, paletteToRGB } from '../utils/color'
+import { paletteToRGB } from '../utils/color'
+import { createPixelUiPrefsSlice } from './pixel-ui-prefs.slice'
+import { createPixelViewportSlice } from './pixel-viewport.slice'
+import { createPixelCoreSlice } from './pixel-core.slice'
 import type {
   PixelStore as PixelStoreShape,
   Viewport,
@@ -111,7 +114,7 @@ function b64ToU8(b64: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i)
   return u8
 }
-const defaultPalette: string[] = [
+export const defaultPalette: string[] = [
   '#000000','#FFFFFF','#FF0000','#00FF00','#0000FF','#FFFF00','#FF00FF','#00FFFF',
   '#808080','#800000','#808000','#008000','#800080','#008080','#000080','#C0C0C0',
   '#FFA500','#A52A2A','#8B4513','#2E8B57','#228B22','#3CB371','#66CDAA','#20B2AA',
@@ -145,25 +148,13 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
   }
 
   return {
-    width,
-    height,
-    pixels,
-    palette: defaultPalette,
-    paletteRGB: paletteToRGB(defaultPalette),
-    selected: 1,
-    version: 0,
+    ...createPixelCoreSlice(width, height, pixels, defaultPalette)(set, get),
     cooldownMs: 5000,
     lastPlacedAt: 0,
-    viewport: { scale: 8, offsetX: 0, offsetY: 0 },
     history: [],
     historyLimit: 200,
     tool: 'paint',
     selection: null,
-    canvasW: 0,
-    canvasH: 0,
-    setCanvasSize: (w, h) => set({ canvasW: w, canvasH: h }),
-    showGrid: false,
-    setShowGrid: (v: boolean) => set({ showGrid: !!v }),
     dirty: [],
     fullRedraw: true,
     consumeDirty: () => {
@@ -392,39 +383,6 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
           console.debug('[ws] 未识别的消息类型', msg)
       }
     },
-    gridColor: '#ffffff',
-    gridAlpha: 0.08,
-    gridMinScale: 8,
-    setGridColor: (c: string) => set({ gridColor: c || '#ffffff' }),
-    setGridAlpha: (a: number) => set({ gridAlpha: clamp(a, 0, 1) }),
-    setGridMinScale: (s: number) => set({ gridMinScale: clamp(Math.round(s), 1, 64) }),
-    cursorStyle: 'outline',
-    cursorColor: '#ffffff',
-    cursorCooldownColor: '#f97316',
-    cursorPipetteColor: '#38bdf8',
-    showCursorHints: true,
-    setCursorStyle: (style) => set({ cursorStyle: style }),
-    setCursorColor: (color: string) => set({ cursorColor: color || '#ffffff' }),
-    setCursorCooldownColor: (color: string) => set({ cursorCooldownColor: color || '#f97316' }),
-    setCursorPipetteColor: (color: string) => set({ cursorPipetteColor: color || '#38bdf8' }),
-    setShowCursorHints: (v: boolean) => set({ showCursorHints: !!v }),
-    setSelected: (i) => set({ selected: clamp(i, 0, get().palette.length - 1) }),
-    setAuthoritativeMode: (v: boolean) => set({ authoritativeMode: !!v }),
-    setViewport: (v) => set({ viewport: { ...get().viewport, ...v } }),
-    panBy: (dx, dy) => set({ viewport: { ...get().viewport, offsetX: get().viewport.offsetX + dx, offsetY: get().viewport.offsetY + dy } }),
-    setScale: (scale, anchor) => {
-      const vp = get().viewport
-      const ns = clamp(scale, 1, 64)
-      if (anchor) {
-        const wx = (anchor.x - vp.offsetX) / vp.scale
-        const wy = (anchor.y - vp.offsetY) / vp.scale
-        const nx = anchor.x - wx * ns
-        const ny = anchor.y - wy * ns
-        set({ viewport: { scale: ns, offsetX: nx, offsetY: ny } })
-      } else {
-        set({ viewport: { ...vp, scale: ns } })
-      }
-    },
     getPixel: (x, y) => {
       if (x < 0 || y < 0 || x >= get().width || y >= get().height) return 0
       return get().pixels[y * get().width + x]
@@ -595,12 +553,8 @@ const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore
         return false
       }
     },
-    centerOn: (x, y) => {
-      const s = get()
-      const ox = s.canvasW / 2 - x * s.viewport.scale
-      const oy = s.canvasH / 2 - y * s.viewport.scale
-      set({ viewport: { ...s.viewport, offsetX: ox, offsetY: oy } })
-    },
+    ...createPixelViewportSlice(set, get),
+    ...createPixelUiPrefsSlice(set, get),
   }
 }
 
