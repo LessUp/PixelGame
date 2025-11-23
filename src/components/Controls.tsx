@@ -1,5 +1,30 @@
 import { useRef } from 'react'
 import usePixelStore from '../store/usePixelStore'
+import { Button } from './ui/Button'
+import { Card, CardHeader, CardTitle, CardContent } from './ui/Card'
+import { Input } from './ui/Input'
+import { toast } from 'sonner'
+import { 
+  Pencil, 
+  BoxSelect, 
+  PaintBucket, 
+  Ban, 
+  Undo2, 
+  Trash2, 
+  Save, 
+  FolderOpen, 
+  ImageDown, 
+  FileJson, 
+  Upload,
+  Grid3X3,
+  Settings2,
+  Link2,
+  Globe2,
+  Wifi,
+  WifiOff,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react'
 
 export default function Controls() {
   const undo = usePixelStore(s => s.undo)
@@ -45,6 +70,7 @@ export default function Controls() {
     a.href = url
     a.download = 'pixel-board.png'
     a.click()
+    toast.success('图片导出成功')
   }
 
   const handleExportJSON = () => {
@@ -56,6 +82,7 @@ export default function Controls() {
     a.download = 'pixel-board.json'
     a.click()
     URL.revokeObjectURL(url)
+    toast.success('项目数据导出成功')
   }
 
   const handleImportJSON = () => {
@@ -65,223 +92,287 @@ export default function Controls() {
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const text = await file.text()
-    const ok = importJSON(text)
-    if (!ok) alert('导入失败：文件格式不匹配或数据损坏')
+    try {
+      const text = await file.text()
+      const ok = importJSON(text)
+      if (!ok) {
+        toast.error('导入失败：文件格式不匹配或数据损坏')
+      } else {
+        toast.success('项目加载成功')
+      }
+    } catch (error) {
+      toast.error('读取文件失败')
+    }
     e.target.value = ''
   }
 
-  const panelClass = 'rounded-2xl border border-white/10 bg-slate-950/40 p-4 shadow-lg shadow-slate-950/50 backdrop-blur-sm space-y-4'
-  const sectionTitle = 'text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-sky-200/80'
-  const controlButton = 'group relative overflow-hidden rounded-xl border border-white/10 bg-slate-800/70 px-3 py-2 text-sm font-medium text-slate-200 transition-all duration-200 hover:border-sky-400/40 hover:bg-slate-700/70 hover:text-white shadow-sm shadow-slate-950/40'
-  const accentButton = 'relative overflow-hidden rounded-xl border border-sky-400/60 bg-sky-500/20 px-3 py-2 text-sm font-medium text-white shadow-lg shadow-sky-900/40 ring-1 ring-sky-300/30'
-  const subtleInputLabel = 'text-xs text-slate-300/70'
-
   return (
     <div className="space-y-4">
-      <section className={panelClass}>
-        <div className="flex items-center justify-between">
-          <h3 className={sectionTitle}>工具模式</h3>
-          <span className="text-[0.7rem] text-slate-400/80">B / M</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            className={tool === 'paint' ? accentButton : controlButton}
-            aria-pressed={tool === 'paint'}
-            title="快捷键：B"
-            onClick={() => setTool('paint')}
-          >
-            画笔 (B)
-          </button>
-          <button
-            className={tool === 'selectRect' ? accentButton : controlButton}
-            aria-pressed={tool === 'selectRect'}
-            title="快捷键：M"
-            onClick={() => setTool('selectRect')}
-          >
-            选框 (M)
-          </button>
-        </div>
-        {tool === 'selectRect' && (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle>工具模式</CardTitle>
+          <span className="text-[0.65rem] text-slate-500">B / M</span>
+        </CardHeader>
+        <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
-            <button
-              className={selection ? controlButton : 'rounded-xl border border-white/5 bg-slate-900/60 px-3 py-2 text-sm text-slate-500 cursor-not-allowed'}
-              disabled={!selection}
-              onClick={() => selection && fillSelection()}
-              title="填充选区（快捷键：F）"
+            <Button
+              variant={tool === 'paint' ? 'primary' : 'secondary'}
+              onClick={() => setTool('paint')}
+              className="gap-2"
             >
-              填充选区 (F)
-            </button>
-            <button
-              className={selection ? controlButton : 'rounded-xl border border-white/5 bg-slate-900/60 px-3 py-2 text-sm text-slate-500 cursor-not-allowed'}
-              disabled={!selection}
-              onClick={() => clearSelection()}
-              title="取消当前选择（快捷键：Esc）"
+              <Pencil className="h-4 w-4" /> 画笔
+            </Button>
+            <Button
+              variant={tool === 'selectRect' ? 'primary' : 'secondary'}
+              onClick={() => setTool('selectRect')}
+              className="gap-2"
             >
-              取消选择 (Esc)
-            </button>
+              <BoxSelect className="h-4 w-4" /> 选框
+            </Button>
           </div>
-        )}
-      </section>
+          {tool === 'selectRect' && (
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!selection}
+                onClick={() => {
+                  if(selection) {
+                    fillSelection()
+                    toast.success('选区已填充')
+                  }
+                }}
+                className="gap-2"
+              >
+                <PaintBucket className="h-3.5 w-3.5" /> 填充
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={!selection}
+                onClick={() => clearSelection()}
+                className="gap-2"
+              >
+                <Ban className="h-3.5 w-3.5" /> 取消
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <section className={panelClass}>
-        <h3 className={sectionTitle}>画布管理</h3>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <button className={controlButton} onClick={undo} title="撤销 (Ctrl+Z)">撤销</button>
-          <button className={`${controlButton} border-red-500/60 text-red-200 hover:border-red-300/70 hover:bg-red-500/20`} onClick={clear} title="清空所有像素">清空</button>
-          <button className={controlButton} onClick={save} title="保存至本地缓存">保存</button>
-          <button className={controlButton} onClick={load} title="加载本地缓存">加载</button>
-          <button className={controlButton} onClick={handleExportPNG} title="导出 PNG 图片">导出 PNG</button>
-          <button className={controlButton} onClick={handleExportJSON} title="导出 JSON 数据">导出 JSON</button>
-          <button className={controlButton} onClick={handleImportJSON} title="从 JSON 文件导入">导入 JSON</button>
-        </div>
-      </section>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>画布管理</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => { undo(); toast.info('已撤销') }} className="gap-2">
+              <Undo2 className="h-4 w-4" /> 撤销
+            </Button>
+            <Button variant="danger" onClick={() => { clear(); toast.warning('画布已清空') }} className="gap-2">
+              <Trash2 className="h-4 w-4" /> 清空
+            </Button>
+            <Button variant="secondary" onClick={() => { save(); toast.success('已保存至本地') }} className="gap-2">
+              <Save className="h-4 w-4" /> 保存
+            </Button>
+            <Button variant="secondary" onClick={() => { load(); toast.success('已加载本地存档') }} className="gap-2">
+              <FolderOpen className="h-4 w-4" /> 加载
+            </Button>
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+             <Button variant="outline" size="sm" onClick={handleExportPNG} className="gap-2 w-full justify-start">
+               <ImageDown className="h-4 w-4" /> 导出 PNG 图片
+             </Button>
+             <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportJSON} className="gap-2">
+                <FileJson className="h-4 w-4" /> 导出 JSON
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleImportJSON} className="gap-2">
+                <Upload className="h-4 w-4" /> 导入 JSON
+              </Button>
+             </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className={panelClass}>
-        <div className="flex items-center gap-3">
-          <input
-            id="grid-toggle"
-            type="checkbox"
-            checked={showGrid}
-            onChange={(e) => setShowGrid(e.target.checked)}
-            className="h-4 w-4 rounded border border-white/20 bg-slate-900/60 accent-sky-500"
-          />
-          <label htmlFor="grid-toggle" className="text-sm text-slate-200">显示网格</label>
-        </div>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle>显示设置</CardTitle>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className={showGrid ? "text-sky-400" : "text-slate-500"}
+            onClick={() => setShowGrid(!showGrid)}
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+        </CardHeader>
         {showGrid && (
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-900/60 p-3 shadow-inner shadow-slate-950/60">
-            <div className="flex items-center gap-3">
-              <label className={`${subtleInputLabel} w-20`}>网格颜色</label>
-              <input
-                type="color"
-                value={gridColor}
-                onChange={e => setGridColor(e.target.value)}
-                className="h-9 w-16 cursor-pointer rounded border border-white/10 bg-transparent"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label className={`${subtleInputLabel} w-20`}>不透明度</label>
-              <input
-                className="flex-1 accent-sky-500"
-                type="range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={gridAlpha}
-                onChange={e => setGridAlpha(parseFloat(e.target.value))}
-              />
-              <span className="w-12 text-right text-xs text-slate-200/80">{gridAlpha.toFixed(2)}</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className={`${subtleInputLabel} w-20`}>最小缩放</label>
-              <input
-                className="w-24 rounded border border-white/10 bg-slate-900/70 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          <CardContent className="space-y-4 animate-in fade-in slide-in-from-top-2">
+             <div className="space-y-1">
+               <label className="text-xs text-slate-400">网格颜色</label>
+               <div className="flex items-center gap-3">
+                 <div 
+                   className="h-6 w-6 rounded-full border border-white/20 shadow-inner" 
+                   style={{ backgroundColor: gridColor }}
+                 />
+                 <input
+                   type="color"
+                   value={gridColor}
+                   onChange={e => setGridColor(e.target.value)}
+                   className="h-8 flex-1 cursor-pointer opacity-0 absolute w-full"
+                 />
+                 <Input 
+                    value={gridColor} 
+                    onChange={e => setGridColor(e.target.value)}
+                    className="h-8 font-mono text-xs" 
+                 />
+               </div>
+             </div>
+             
+             <div className="space-y-1">
+               <div className="flex justify-between text-xs text-slate-400">
+                 <label>不透明度</label>
+                 <span>{Math.round(gridAlpha * 100)}%</span>
+               </div>
+               <input
+                 className="w-full accent-sky-500 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                 type="range"
+                 min={0}
+                 max={1}
+                 step={0.01}
+                 value={gridAlpha}
+                 onChange={e => setGridAlpha(parseFloat(e.target.value))}
+               />
+             </div>
+
+             <div className="space-y-1">
+               <label className="text-xs text-slate-400">最小显示比例</label>
+               <div className="flex items-center gap-2">
+                 <Input
+                   type="number"
+                   min={1}
+                   max={64}
+                   value={gridMinScale}
+                   onChange={e => setGridMinScale(parseInt(e.target.value || '8'))}
+                   className="h-8 text-xs"
+                 />
+                 <span className="text-xs text-slate-500">px</span>
+               </div>
+             </div>
+          </CardContent>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+           <CardTitle>分享与历史</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+             <label className="text-xs text-slate-400 whitespace-nowrap">撤销步数</label>
+             <Input
                 type="number"
                 min={1}
-                max={64}
-                value={gridMinScale}
-                onChange={e => setGridMinScale(parseInt(e.target.value || '8'))}
+                max={1000}
+                value={historyLimit}
+                onChange={e => setHistoryLimit(parseInt(e.target.value || '200'))}
+                className="h-8 w-24 text-right text-xs"
               />
-            </div>
           </div>
-        )}
-      </section>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={async () => {
+                const hash = exportHash()
+                const url = `${location.origin}${location.pathname}${hash}`
+                location.hash = hash
+                try {
+                  await navigator.clipboard.writeText(url)
+                  toast.success('链接已复制到剪贴板')
+                } catch {
+                  toast.error('复制失败，请手动复制 URL')
+                }
+              }}
+            >
+              <Link2 className="h-3.5 w-3.5" /> 复制链接
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                applyHash(location.hash)
+                toast.success('已恢复视图')
+              }}
+            >
+              <Globe2 className="h-3.5 w-3.5" /> 应用链接
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className={panelClass}>
-        <h3 className={sectionTitle}>历史与分享</h3>
-        <div className="flex items-center gap-3">
-          <label className={`${subtleInputLabel} w-28`}>撤销步数上限</label>
-          <input
-            className="w-24 rounded border border-white/10 bg-slate-900/70 px-2 py-1 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
-            type="number"
-            min={1}
-            max={1000}
-            value={historyLimit}
-            onChange={e => setHistoryLimit(parseInt(e.target.value || '200'))}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            className={controlButton}
-            title="复制当前视角与选色的分享链接"
-            onClick={async () => {
-              const hash = exportHash()
-              const url = `${location.origin}${location.pathname}${hash}`
-              location.hash = hash
-              try {
-                await navigator.clipboard.writeText(url)
-              } catch {
-                /* clipboard write may be blocked */
-              }
-            }}
-          >
-            复制分享链接
-          </button>
-          <button
-            className={controlButton}
-            title="从当前页面 URL 恢复视角、颜色与网格设置"
-            onClick={() => {
-              applyHash(location.hash)
-            }}
-          >
-            应用当前链接
-          </button>
-        </div>
-      </section>
-
-      <section className={panelClass}>
-        <div className="flex items-center justify-between">
-          <h3 className={sectionTitle}>联机</h3>
-          <span className="text-[0.7rem] text-slate-400/80">实验功能</span>
-        </div>
-        <div className="space-y-3">
-          <label className="block text-xs font-medium text-slate-300/70">服务器地址</label>
-          <input
-            className="w-full rounded-xl border border-white/20 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 placeholder-slate-400/70 focus:outline-none focus:ring-2 focus:ring-sky-500/60"
-            placeholder="wss://example.com/ws"
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle>联机协作</CardTitle>
+          <div className={cn("h-2 w-2 rounded-full", {
+            'bg-emerald-500 animate-pulse': wsEnabled,
+            'bg-yellow-500': wsStatus === 'connecting',
+            'bg-red-500': wsStatus === 'error',
+            'bg-slate-700': !wsEnabled && wsStatus !== 'connecting' && wsStatus !== 'error'
+          })} />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="wss://..."
             value={wsUrl}
             onChange={e => setWsUrl(e.target.value)}
+            className="text-xs font-mono"
           />
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="rounded-xl bg-sky-600/90 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-sky-500 disabled:bg-slate-700 disabled:text-slate-400"
-              onClick={() => connectWS(wsUrl)}
-              disabled={!wsUrl.trim() || wsStatus === 'connecting'}
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+               variant={wsStatus === 'connecting' ? 'secondary' : 'primary'}
+               disabled={!wsUrl.trim() || wsStatus === 'connecting'}
+               onClick={() => connectWS(wsUrl)}
+               className="gap-2"
             >
-              {wsStatus === 'connecting' ? '连接中…' : '连接服务器'}
-            </button>
-            <button
-              className="rounded-xl bg-slate-700/90 px-3 py-1.5 text-sm font-medium text-slate-100 transition hover:bg-slate-600"
-              onClick={disconnectWS}
+               <Wifi className="h-4 w-4" />
+               {wsStatus === 'connecting' ? '连接中...' : '连接'}
+            </Button>
+             <Button
+               variant="secondary"
+               onClick={() => {
+                 disconnectWS()
+                 toast.info('已断开连接')
+               }}
+               className="gap-2"
             >
-              断开连接
-            </button>
-            <label className="ml-2 flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-100">
+               <WifiOff className="h-4 w-4" /> 断开
+            </Button>
+          </div>
+          
+          <div className="flex items-center justify-between rounded-lg bg-slate-900/50 p-2 border border-white/5">
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border border-white/20 accent-sky-500"
+                className="h-3.5 w-3.5 rounded border-white/20 accent-sky-500"
                 checked={authoritativeMode}
                 onChange={e => setAuthoritativeMode(e.target.checked)}
-                title="启用服务端权威：连接异常时回滚未确认本地操作"
               />
-              <span>服务端权威</span>
+              服务端权威模式
             </label>
-            <span className={`text-xs font-medium ${wsEnabled ? 'text-emerald-300' : wsStatus === 'error' ? 'text-red-300' : 'text-slate-300/80'}`}>
-              状态：{wsEnabled ? '已连接' : wsStatus === 'connecting' ? '连接中' : wsStatus === 'error' ? '连接异常' : '未连接'}
-            </span>
           </div>
-          <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 text-xs text-slate-300/70">
-            <div>wsEnabled：{wsEnabled ? 'true' : 'false'}</div>
-            {wsLastHeartbeat && (
-              <div>最近心跳：{new Date(wsLastHeartbeat).toLocaleTimeString()}</div>
-            )}
-            {wsError && (
-              <div className="mt-1 text-red-300">{wsError}</div>
-            )}
-            <div>权威模式：{authoritativeMode ? '启用' : '关闭'}</div>
-          </div>
-        </div>
-      </section>
+
+          {wsError && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-400 border border-red-500/10">
+              <AlertCircle className="h-3 w-3 shrink-0" />
+              <span className="line-clamp-2">{wsError}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <input ref={fileRef} className="hidden" type="file" accept="application/json" onChange={onFileChange} />
     </div>

@@ -7,6 +7,8 @@ import MiniMap from './components/MiniMap'
 import ActionDock from './components/ActionDock'
 import usePixelStore from './store/usePixelStore'
 
+import { Toaster } from 'sonner'
+
 function App() {
   const undo = usePixelStore(s => s.undo)
   const load = usePixelStore(s => s.load)
@@ -195,30 +197,13 @@ function App() {
           </section>
 
           <aside className="w-full shrink-0 space-y-5 lg:max-w-sm">
-            <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/50 backdrop-blur">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-white/90">创作工具</h2>
-                <span className="text-xs text-slate-300/80">操作 &amp; 设置</span>
-              </div>
-              <div className="mt-4">
-                <Controls />
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/50 backdrop-blur">
-              <MiniMap />
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-slate-950/50 backdrop-blur">
-              <h2 className="text-sm font-semibold text-white/90">调色板</h2>
-              <p className="mt-1 text-xs text-slate-300/80">快速挑选或切换常用像素颜色。</p>
-              <div className="mt-4">
-                <Palette />
-              </div>
-            </div>
+            <Controls />
+            <MiniMap />
+            <Palette />
           </aside>
         </div>
         <ActionDock />
+        <Toaster position="top-center" theme="dark" />
       </div>
     </div>
   )

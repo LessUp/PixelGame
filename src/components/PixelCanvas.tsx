@@ -394,8 +394,8 @@ export default function PixelCanvas() {
   }, [setCanvasSize])
 
   return (
-    <div className="w-full h-full bg-neutral-900">
-      <canvas ref={canvasRef} className="w-full h-full touch-none" />
+    <div className="w-full h-full bg-slate-950/30">
+      <canvas ref={canvasRef} className="w-full h-full touch-none cursor-crosshair" />
     </div>
   )
 }

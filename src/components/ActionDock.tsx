@@ -1,4 +1,17 @@
 import usePixelStore from '../store/usePixelStore'
+import { Button } from './ui/Button'
+import { 
+  Undo2, 
+  Save, 
+  ImageDown, 
+  Grid3X3, 
+  Pencil, 
+  BoxSelect, 
+  PaintBucket,
+  MousePointer2,
+  ZoomIn
+} from 'lucide-react'
+import { toast } from 'sonner'
 
 function downloadPNG(exportPNG: () => string) {
   const url = exportPNG()
@@ -6,6 +19,7 @@ function downloadPNG(exportPNG: () => string) {
   a.href = url
   a.download = 'pixel-board.png'
   a.click()
+  toast.success('图片导出成功')
 }
 
 export default function ActionDock() {
@@ -19,64 +33,81 @@ export default function ActionDock() {
   const selection = usePixelStore(s => s.selection)
   const fillSelection = usePixelStore(s => s.fillSelection)
 
-  const baseBtn =
-    'flex items-center gap-2 rounded-2xl border border-white/10 px-3 py-2 text-sm font-medium text-slate-200 transition hover:-translate-y-0.5 hover:border-sky-400/40 hover:text-white'
-
-  const activeBtn = `${baseBtn} bg-sky-500/20 text-white shadow-lg shadow-sky-900/40`
-  const subtleBtn = `${baseBtn} bg-slate-800/60 shadow-inner shadow-black/20`
-
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-30 flex justify-center px-4">
-      <div className="pointer-events-auto w-full max-w-4xl rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-2xl shadow-black/40 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2">
-          <button className={subtleBtn} onClick={undo} title="撤销 (Ctrl+Z)">
-            ↺ 撤销
-          </button>
-          <button className={subtleBtn} onClick={save} title="保存至本地缓存">
-            💾 保存
-          </button>
-          <button className={subtleBtn} onClick={() => downloadPNG(exportPNG)} title="导出 PNG">
-            ⬇️ 导出
-          </button>
-          <button
-            className={showGrid ? activeBtn : subtleBtn}
-            onClick={() => setShowGrid(!showGrid)}
-            title="显示/隐藏网格 (G)"
-            aria-pressed={showGrid}
-          >
-            # 网格 {showGrid ? '开' : '关'}
-          </button>
-          <button
-            className={tool === 'paint' ? activeBtn : subtleBtn}
-            onClick={() => setTool('paint')}
+      <div className="pointer-events-auto flex flex-col items-center gap-3 rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all hover:bg-slate-950/90">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Button variant="ghost" size="icon" onClick={() => { undo(); toast.info('已撤销') }} title="撤销 (Ctrl+Z)" className="rounded-full">
+            <Undo2 className="h-5 w-5" />
+          </Button>
+          
+          <div className="h-6 w-px bg-white/10 mx-1" />
+
+          <Button 
+            variant={tool === 'paint' ? 'primary' : 'ghost'} 
+            size="icon" 
+            onClick={() => setTool('paint')} 
             title="画笔模式 (B)"
-            aria-pressed={tool === 'paint'}
+            className="rounded-full"
           >
-            ✏️ 画笔
-          </button>
-          <button
-            className={tool === 'selectRect' ? activeBtn : subtleBtn}
-            onClick={() => setTool('selectRect')}
+            <Pencil className="h-5 w-5" />
+          </Button>
+
+          <Button 
+            variant={tool === 'selectRect' ? 'primary' : 'ghost'} 
+            size="icon" 
+            onClick={() => setTool('selectRect')} 
             title="选框模式 (M)"
-            aria-pressed={tool === 'selectRect'}
+            className="rounded-full"
           >
-            ▧ 选框
-          </button>
-          <button
-            className={selection ? subtleBtn : `${subtleBtn} cursor-not-allowed opacity-50`}
+            <BoxSelect className="h-5 w-5" />
+          </Button>
+
+          <Button 
+            variant="ghost"
+            size="icon"
             disabled={!selection}
-            onClick={() => selection && fillSelection()}
+            onClick={() => { selection && fillSelection(); toast.success('选区已填充') }}
             title="填充当前选区 (F)"
+            className={!selection ? 'opacity-30' : 'text-sky-400 hover:bg-sky-500/10 rounded-full'}
           >
-            🩸 填充
-          </button>
+            <PaintBucket className="h-5 w-5" />
+          </Button>
+
+          <div className="h-6 w-px bg-white/10 mx-1" />
+
+          <Button 
+            variant={showGrid ? 'primary' : 'ghost'}
+            size="icon"
+            onClick={() => setShowGrid(!showGrid)} 
+            title="网格开关 (G)"
+            className="rounded-full"
+          >
+            <Grid3X3 className="h-5 w-5" />
+          </Button>
+
+          <div className="h-6 w-px bg-white/10 mx-1" />
+
+          <Button variant="ghost" size="icon" onClick={() => { save(); toast.success('已保存') }} title="快速保存" className="rounded-full">
+            <Save className="h-5 w-5" />
+          </Button>
+
+          <Button variant="ghost" size="icon" onClick={() => downloadPNG(exportPNG)} title="导出图片" className="rounded-full">
+            <ImageDown className="h-5 w-5" />
+          </Button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-slate-300/80">
-          <span>当前工具：{tool === 'selectRect' ? '选框 (M)' : '画笔 (B)'}</span>
-          <span className="flex gap-4">
-            <span>滚轮：缩放画布</span>
-            <span>Alt：吸管</span>
-          </span>
+        
+        {/* Status Bar */}
+        <div className="flex items-center gap-4 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+           <span className="flex items-center gap-1">
+             <MousePointer2 className="h-3 w-3" />
+             {tool === 'selectRect' ? '选框工具' : '画笔工具'}
+           </span>
+           <span className="flex items-center gap-1">
+             <ZoomIn className="h-3 w-3" />
+             滚轮缩放
+           </span>
+           <span className="hidden sm:inline-block">Alt 取色</span>
         </div>
       </div>
     </div>

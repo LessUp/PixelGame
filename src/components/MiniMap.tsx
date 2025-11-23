@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import usePixelStore from '../store/usePixelStore'
 import { hexToRgb } from '../utils/color'
+import { Card, CardHeader, CardTitle, CardContent } from './ui/Card'
+import { Map } from 'lucide-react'
 
 export default function MiniMap() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -102,14 +104,24 @@ export default function MiniMap() {
   }, [width, height, centerOn])
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-[0.65rem] font-semibold uppercase tracking-[0.35em] text-sky-200/80">迷你地图</h3>
-        <p className="mt-1 text-xs text-slate-300/70">快速定位当前视角，一键聚焦到任意像素区域。</p>
-      </div>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-2 shadow-inner shadow-slate-950/60">
-        <canvas ref={canvasRef} className="h-auto w-full" width={256} height={256} />
-      </div>
-    </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle>迷你地图</CardTitle>
+        <Map className="h-4 w-4 text-slate-500" />
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-slate-400">
+          点击地图快速跳转到对应区域。
+        </p>
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40 shadow-inner shadow-slate-950/60">
+          <canvas 
+            ref={canvasRef} 
+            className="h-auto w-full cursor-crosshair opacity-90 hover:opacity-100 transition-opacity" 
+            width={256} 
+            height={256} 
+          />
+        </div>
+      </CardContent>
+    </Card>
   )
 }
