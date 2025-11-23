@@ -161,50 +161,47 @@ function App() {
   }, [undo, load, panBy, setScale, setSelected, setShowGrid, showGrid, viewport.scale, applyHash, fillSelection, clearSelection, setTool])
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-slate-950 text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-sky-500/30 blur-3xl" />
-        <div className="absolute -bottom-40 right-[-10rem] h-[32rem] w-[32rem] rounded-full bg-purple-500/20 blur-3xl" />
-        <div className="absolute top-1/3 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-400/10 blur-[110px]" />
-      </div>
-
-      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col px-6 py-8 lg:px-10 lg:py-12">
-        <header className="flex flex-col gap-6 pb-8 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-3">
-            <span className="inline-flex items-center rounded-full bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.4em] text-sky-200/80 shadow-sm shadow-slate-950/40">PixelGame</span>
-            <div>
-              <h1 className="text-3xl font-semibold text-white drop-shadow md:text-4xl">像素创作工作室</h1>
-              <p className="mt-3 max-w-2xl text-sm text-slate-300/90">
-                在这里探索无穷的像素灵感：通过快捷键与工具快速切换创作模式，利用迷你地图、网格与调色板，打造精致的像素世界。
-              </p>
-            </div>
+    <div className="relative flex h-screen w-full flex-col overflow-hidden text-slate-100 selection:bg-sky-500/30">
+      {/* Header */}
+      <header className="z-20 flex shrink-0 items-center justify-between border-b border-white/5 bg-slate-950/20 px-6 py-3 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 shadow-lg shadow-sky-500/20">
+            <span className="text-lg font-bold text-white">P</span>
           </div>
-          <div className="flex min-w-[15rem] flex-col gap-2 rounded-3xl border border-white/10 bg-slate-900/70 p-5 text-xs text-slate-200/80 shadow-xl shadow-slate-950/40 backdrop-blur">
-            <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.35em] text-sky-200/80">快捷提示</h2>
-            <ul className="space-y-1 leading-relaxed">
-              <li>左键放置像素，右键拖动画布</li>
-              <li>滚轮缩放（鼠标位置为缩放锚点）</li>
-              <li>按住 Alt 吸管取色，Ctrl+Z 撤销</li>
-              <li>B 切换画笔，M 切换选框，F 填充选区</li>
-            </ul>
+          <div>
+            <h1 className="text-lg font-bold text-slate-100 tracking-tight">Pixel Studio</h1>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">多人实时像素协作</p>
           </div>
-        </header>
-
-        <div className="flex flex-1 flex-col gap-6 pb-8 lg:flex-row">
-          <section className="relative flex-1 overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-2xl shadow-slate-950/50 backdrop-blur">
-            <PixelCanvas />
-            <HUD />
-          </section>
-
-          <aside className="w-full shrink-0 space-y-5 lg:max-w-sm">
-            <Controls />
-            <MiniMap />
-            <Palette />
-          </aside>
         </div>
-        <ActionDock />
-        <Toaster position="top-center" theme="dark" />
-      </div>
+
+        <div className="flex items-center gap-4">
+           <div className="hidden items-center gap-6 rounded-full bg-slate-900/50 px-5 py-2 text-xs font-medium text-slate-400 border border-white/5 sm:flex">
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">B</kbd> 画笔</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">M</kbd> 选框</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">Alt</kbd> 取色</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">Space</kbd> 拖拽</span>
+           </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 flex min-h-0 flex-1 gap-4 p-4">
+        {/* Canvas Area */}
+        <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/20 shadow-2xl shadow-black/40 backdrop-blur-sm ring-1 ring-black/20">
+          <PixelCanvas />
+          <HUD />
+        </section>
+
+        {/* Sidebar */}
+        <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+          <MiniMap />
+          <Palette />
+          <Controls />
+        </aside>
+      </main>
+
+      <ActionDock />
+      <Toaster position="bottom-center" theme="dark" className="mb-20" />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { hexToRgb } from '../utils/color'
 export default function PixelCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const offRef = useRef<HTMLCanvasElement | OffscreenCanvas | null>(null)
+  const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [hover, setHover] = useState<{x:number,y:number}|null>(null)
 
   const width = usePixelStore(s => s.width)
@@ -21,6 +22,27 @@ export default function PixelCanvas() {
   const gridAlpha = usePixelStore(s => s.gridAlpha)
   const gridMinScale = usePixelStore(s => s.gridMinScale)
   const selection = usePixelStore(s => s.selection)
+
+  // Space key handling for panning
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLInputElement)) {
+        e.preventDefault()
+        setIsSpacePressed(true)
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
 
   // Offscreen update (partial redraw)
   useEffect(() => {
@@ -239,7 +261,7 @@ export default function PixelCanvas() {
         return
       }
 
-      if (e.button === 0) {
+      if (e.button === 0 && !isSpacePressed) {
         const currTool = usePixelStore.getState().tool
         if (currTool === 'selectRect') {
           usePixelStore.getState().startSelection(gx, gy)
@@ -251,7 +273,7 @@ export default function PixelCanvas() {
           pointerState.isDrawing = true
         }
         canvas.setPointerCapture(e.pointerId)
-      } else if (e.button === 1 || e.button === 2) {
+      } else if (e.button === 1 || e.button === 2 || isSpacePressed) {
         pointerState.isPanning = true
         canvas.setPointerCapture(e.pointerId)
       }
@@ -391,11 +413,14 @@ export default function PixelCanvas() {
       canvas.removeEventListener('wheel', onWheel)
       canvas.removeEventListener('contextmenu', onContextMenu)
     }
-  }, [setCanvasSize])
+  }, [isSpacePressed, setCanvasSize])
 
   return (
-    <div className="w-full h-full bg-slate-950/30">
-      <canvas ref={canvasRef} className="w-full h-full touch-none cursor-crosshair" />
+    <div className="h-full w-full">
+      <canvas 
+        ref={canvasRef} 
+        className={`h-full w-full touch-none ${isSpacePressed ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`} 
+      />
     </div>
   )
 }

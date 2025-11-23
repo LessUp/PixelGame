@@ -18,12 +18,10 @@ import {
   FileJson, 
   Upload,
   Grid3X3,
-  Settings2,
   Link2,
   Globe2,
   Wifi,
   WifiOff,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react'
 
@@ -59,7 +57,6 @@ export default function Controls() {
   const wsEnabled = usePixelStore(s => s.wsEnabled)
   const wsStatus = usePixelStore(s => s.wsStatus)
   const wsError = usePixelStore(s => s.wsError)
-  const wsLastHeartbeat = usePixelStore(s => s.wsLastHeartbeat)
   const authoritativeMode = usePixelStore(s => s.authoritativeMode)
   const setAuthoritativeMode = usePixelStore(s => s.setAuthoritativeMode)
 
@@ -237,7 +234,6 @@ export default function Controls() {
                  <span>{Math.round(gridAlpha * 100)}%</span>
                </div>
                <input
-                 className="w-full accent-sky-500 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                  type="range"
                  min={0}
                  max={1}
