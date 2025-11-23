@@ -3,6 +3,7 @@ import usePixelStore from '../store/usePixelStore'
 import { Button } from './ui/Button'
 import { Card, CardHeader, CardTitle, CardContent } from './ui/Card'
 import { Input } from './ui/Input'
+import { cn } from '../utils/cn'
 import { toast } from 'sonner'
 import { 
   Pencil, 
