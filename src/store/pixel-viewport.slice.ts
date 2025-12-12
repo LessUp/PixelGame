@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore } from './pixel-types'
+import type { PixelStore, PixelViewportState } from './pixel-types'
 import { clamp } from '../utils/math'
 
-export const createPixelViewportSlice: StateCreator<PixelStore, [], []> = (set, get) => ({
+export const createPixelViewportSlice: StateCreator<PixelStore, [], [], PixelViewportState> = (set, get) => ({
   viewport: { scale: 8, offsetX: 0, offsetY: 0 },
   canvasW: 0,
   canvasH: 0,

@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore, CursorStyle } from './pixel-types'
+import type { PixelStore, PixelUiPrefsState, CursorStyle } from './pixel-types'
 import { clamp } from '../utils/math'
 
-export const createPixelUiPrefsSlice: StateCreator<PixelStore, [], []> = (set) => ({
+export const createPixelUiPrefsSlice: StateCreator<PixelStore, [], [], PixelUiPrefsState> = (set) => ({
   showGrid: false,
   setShowGrid: (v: boolean) => set({ showGrid: !!v }),
   gridColor: '#ffffff',

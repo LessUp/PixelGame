@@ -1,5 +1,7 @@
 import type { ServerMessage, PixelUpdate } from '../services/wsClient'
 
+export type { ServerMessage, PixelUpdate }
+
 export type Viewport = {
   scale: number
   offsetX: number

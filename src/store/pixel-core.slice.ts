@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore } from './pixel-types'
+import type { PixelStore, PixelCoreState } from './pixel-types'
 import { paletteToRGB } from '../utils/color'
 
 export const createPixelCoreSlice = (
@@ -7,7 +7,7 @@ export const createPixelCoreSlice = (
   height: number,
   pixels: Uint8Array,
   defaultPalette: string[],
-): StateCreator<PixelStore, [], []> => (set, get) => ({
+): StateCreator<PixelStore, [], [], PixelCoreState> => (set, get) => ({
   width,
   height,
   pixels,

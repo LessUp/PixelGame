@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore, HistoryItem } from './pixel-types'
+import type { PixelStore, HistoryItem, PixelHistoryState } from './pixel-types'
 import { clamp } from '../utils/math'
 
-export const createPixelHistorySlice: StateCreator<PixelStore, [], []> = (set, get) => ({
+export const createPixelHistorySlice: StateCreator<PixelStore, [], [], PixelHistoryState> = (set, get) => ({
   history: [],
   historyLimit: 200,
   undo: () => {

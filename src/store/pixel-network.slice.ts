@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore } from './pixel-types'
+import type { PixelStore, PixelNetworkState } from './pixel-types'
 import type { ServerMessage, PixelUpdate } from '../services/wsClient'
 
 export type PixelNetworkSocket = {
@@ -16,7 +16,7 @@ export type PixelNetworkSocket = {
 
 export const createPixelNetworkSlice = (
   socket: PixelNetworkSocket,
-): StateCreator<PixelStore, [], []> => (set, get) => ({
+): StateCreator<PixelStore, [], [], PixelNetworkState> => (set, get) => ({
   wsEnabled: false,
   wsUrl: '',
   wsStatus: 'disconnected',
@@ -24,6 +24,7 @@ export const createPixelNetworkSlice = (
   wsLastHeartbeat: null,
   authoritativeMode: false,
   pendingOps: [],
+  setAuthoritativeMode: (v) => set({ authoritativeMode: v }),
   setWsUrl: (url: string) => set({ wsUrl: url.trim() }),
   connectWS: (url) => {
     const target = (url || get().wsUrl).trim()

@@ -161,25 +161,25 @@ function App() {
   }, [undo, load, panBy, setScale, setSelected, setShowGrid, showGrid, viewport.scale, applyHash, fillSelection, clearSelection, setTool])
 
   return (
-    <div className="relative flex h-screen w-full flex-col overflow-hidden text-slate-100 selection:bg-sky-500/30">
+    <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background text-foreground selection:bg-primary/30">
       {/* Header */}
-      <header className="z-20 flex shrink-0 items-center justify-between border-b border-white/5 bg-slate-950/20 px-6 py-3 backdrop-blur-sm">
+      <header className="z-20 flex shrink-0 items-center justify-between border-b border-border bg-background/50 px-6 py-3 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 shadow-lg shadow-sky-500/20">
-            <span className="text-lg font-bold text-white">P</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
+            <span className="text-xl font-bold text-primary-foreground">P</span>
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-100 tracking-tight">Pixel Studio</h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">多人实时像素协作</p>
+            <h1 className="text-lg font-bold tracking-tight">Pixel Studio</h1>
+            <p className="text-xs text-muted-foreground font-medium tracking-wide">Real-time Collaboration</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-           <div className="hidden items-center gap-6 rounded-full bg-slate-900/50 px-5 py-2 text-xs font-medium text-slate-400 border border-white/5 sm:flex">
-              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">B</kbd> 画笔</span>
-              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">M</kbd> 选框</span>
-              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">Alt</kbd> 取色</span>
-              <span className="flex items-center gap-1.5"><kbd className="rounded bg-white/10 px-1.5 py-0.5 font-sans text-[10px] text-white">Space</kbd> 拖拽</span>
+           <div className="hidden items-center gap-4 rounded-full bg-secondary/50 px-5 py-2 text-xs font-medium text-muted-foreground border border-border sm:flex">
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">B</kbd> Paint</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">M</kbd> Select</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">Alt</kbd> Pick</span>
+              <span className="flex items-center gap-1.5"><kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-foreground">Space</kbd> Pan</span>
            </div>
         </div>
       </header>
@@ -187,13 +187,13 @@ function App() {
       {/* Main Content */}
       <main className="relative z-10 flex min-h-0 flex-1 gap-4 p-4">
         {/* Canvas Area */}
-        <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/10 bg-slate-900/20 shadow-2xl shadow-black/40 backdrop-blur-sm ring-1 ring-black/20">
+        <section className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-card/30 shadow-2xl backdrop-blur-sm">
           <PixelCanvas />
           <HUD />
         </section>
 
         {/* Sidebar */}
-        <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar">
+        <aside className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto pr-1">
           <MiniMap />
           <Palette />
           <Controls />

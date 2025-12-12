@@ -14,6 +14,8 @@ import type {
   Tool,
   CursorStyle,
   HistoryItem,
+  ServerMessage,
+  PixelUpdate
 } from './pixel-types'
 
 export type PixelStore = PixelStoreShape & {
@@ -105,19 +107,19 @@ type PixelStoreDeps = {
   wsClient?: typeof wsClient
 }
 
-const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore, [], []> => (set, get) => {
+const createPixelStoreState = (socket: typeof wsClient): StateCreator<PixelStore, [], []> => (set, get, store) => {
   const width = 1024
   const height = 1024
   const pixels = new Uint8Array(width * height)
 
   return {
-    ...createPixelCoreSlice(width, height, pixels, defaultPalette)(set, get),
-    ...createPixelHistorySlice(set, get),
-    ...createPixelToolsSlice(socket)(set, get),
-    ...createPixelNetworkSlice(socket)(set, get),
-    ...createPixelSharingSlice(set, get),
-    ...createPixelViewportSlice(set, get),
-    ...createPixelUiPrefsSlice(set, get),
+    ...createPixelCoreSlice(width, height, pixels, defaultPalette)(set, get, store),
+    ...createPixelHistorySlice(set, get, store),
+    ...createPixelToolsSlice(socket)(set, get, store),
+    ...createPixelNetworkSlice(socket)(set, get, store),
+    ...createPixelSharingSlice(set, get, store),
+    ...createPixelViewportSlice(set, get, store),
+    ...createPixelUiPrefsSlice(set, get, store),
   }
 }
 

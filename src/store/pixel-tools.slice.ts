@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore } from './pixel-types'
+import type { PixelStore, PixelToolsState } from './pixel-types'
 import { clamp } from '../utils/math'
 
 export type PixelSocket = {
@@ -9,7 +9,7 @@ export type PixelSocket = {
 
 export const createPixelToolsSlice = (
   socket: PixelSocket,
-): StateCreator<PixelStore, [], []> => (set, get) => ({
+): StateCreator<PixelStore, [], [], PixelToolsState> => (set, get) => ({
   cooldownMs: 5000,
   lastPlacedAt: 0,
   tool: 'paint',

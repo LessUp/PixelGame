@@ -1,11 +1,11 @@
 import type { StateCreator } from 'zustand'
-import type { PixelStore } from './pixel-types'
+import type { PixelStore, PixelSharingState } from './pixel-types'
 import { clamp } from '../utils/math'
 import { paletteToRGB } from '../utils/color'
 import { encodeViewStateToHash, decodeHashToViewState } from '../utils/hash'
 import { PIXEL_STORAGE_KEY, u8ToB64, b64ToU8, savePixelStorage, loadPixelStorage } from '../utils/persistence'
 
-export const createPixelSharingSlice: StateCreator<PixelStore, [], []> = (set, get) => ({
+export const createPixelSharingSlice: StateCreator<PixelStore, [], [], PixelSharingState> = (set, get) => ({
   save: () => {
     try {
       const s = get()
